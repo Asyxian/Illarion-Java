@@ -2,6 +2,8 @@ package illarion.download.launcher;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import java.util.Arrays;
+import java.util.Collections;
 import static org.testng.Assert.assertEquals;
 
 public class JavaLauncherTest {
@@ -20,5 +22,16 @@ public class JavaLauncherTest {
     }
     @Test(dataProvider="versions") public void recognizesSupportedRuntime(String line, boolean expected) {
         assertEquals(JavaLauncher.isSupportedJavaVersion(line), expected);
+    }
+
+    @Test public void runtimeFlagsFollowTheChildJvmVersion() {
+        assertEquals(JavaLauncher.runtimeOptions(8, false), Collections.emptyList());
+        assertEquals(JavaLauncher.runtimeOptions(8, true), Arrays.asList("-XX:+AggressiveOpts"));
+        assertEquals(JavaLauncher.runtimeOptions(11, true), Collections.emptyList());
+        assertEquals(JavaLauncher.runtimeOptions(16, false), Collections.emptyList());
+        assertEquals(JavaLauncher.runtimeOptions(17, false), Arrays.asList("--enable-native-access=ALL-UNNAMED"));
+        assertEquals(JavaLauncher.runtimeOptions(25, true), Arrays.asList("--enable-native-access=ALL-UNNAMED"));
+        assertEquals(JavaLauncher.parseJavaVersion("java version \"1.8.0_504\""), 8);
+        assertEquals(JavaLauncher.parseJavaVersion("openjdk version \"25\""), 25);
     }
 }

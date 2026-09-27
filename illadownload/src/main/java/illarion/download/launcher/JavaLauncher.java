@@ -73,16 +73,15 @@ public final class JavaLauncher {
         executablePaths = OSDetection.isMacOSX() ? new MacOsXJavaExecutableIterable() : new JavaExecutableIterable();
 
         for (Path executable : executablePaths) {
-            if (isJavaExecutableWorking(executable)) {
+            int javaVersion = getJavaVersion(executable);
+            if (javaVersion >= 8) {
                 List<String> callList = new ArrayList<>();
                 callList.add(escapePath(executable.toString()));
+                callList.addAll(runtimeOptions(javaVersion, cfg.getBoolean("launchAggressive")));
                 callList.add("-classpath");
                 callList.add(classPathString);
                 if (snapshot) {
                     callList.add("-Dillarion.server=devserver");
-                }
-                if (cfg.getBoolean("launchAggressive")) {
-                    callList.add("-XX:+AggressiveOpts");
                 }
                 callList.add(startupClass);
                 printCallList(callList);
@@ -100,9 +99,9 @@ public final class JavaLauncher {
      * This function is used to check if the java executable has the proper version.
      *
      * @param executable the path to the executable
-     * @return {@code true} in case java meets the required specifications
+     * @return the detected Java feature version, or zero if detection failed
      */
-    private static boolean isJavaExecutableWorking(@Nonnull Path executable) {
+    private static int getJavaVersion(@Nonnull Path executable) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(executable.toString(), "-version");
             processBuilder.redirectErrorStream(true);
@@ -111,7 +110,8 @@ public final class JavaLauncher {
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), Charset.defaultCharset()))) {
 
-                return reader.lines().anyMatch(JavaLauncher::isSupportedJavaVersion);
+                return reader.lines().mapToInt(JavaLauncher::parseJavaVersion)
+                        .filter(version -> version > 0).findFirst().orElse(0);
 
             } finally {
                 process.destroy();
@@ -119,24 +119,40 @@ public final class JavaLauncher {
         } catch (IOException e) {
             log.error("Launching {} failed.", executable);
         }
-        return false;
+        return 0;
     }
 
     // Both legacy 1.8.0_... and modern OpenJDK version strings are supported.
     static boolean isSupportedJavaVersion(String line) {
+        return parseJavaVersion(line) >= 8;
+    }
+
+    static int parseJavaVersion(String line) {
         Matcher matcher = Pattern.compile("^(?:java|openjdk) version \"(\\d+)(?:\\.(\\d+))?[^\"]*\"").matcher(line.trim());
         if (!matcher.find()) {
-            return false;
+            return 0;
         }
         try {
             int feature = Integer.parseInt(matcher.group(1));
             if (feature == 1) {
-                return matcher.group(2) != null && Integer.parseInt(matcher.group(2)) >= 8;
+                return matcher.group(2) != null ? Integer.parseInt(matcher.group(2)) : 0;
             }
-            return feature >= 8;
+            return feature;
         } catch (NumberFormatException e) {
-            return false;
+            return 0;
         }
+    }
+
+    static List<String> runtimeOptions(int javaVersion, boolean aggressive) {
+        List<String> options = new ArrayList<>();
+        if (javaVersion >= 17) {
+            options.add("--enable-native-access=ALL-UNNAMED");
+        }
+        // Deprecated in Java 11 and removed in Java 12.
+        if (aggressive && javaVersion >= 8 && javaVersion < 11) {
+            options.add("-XX:+AggressiveOpts");
+        }
+        return options;
     }
 
     /**

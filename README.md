@@ -73,6 +73,26 @@ Do not apply the Java 8 test override to the launcher or Gradle plugin tests.
 A successful compilation/test run does not replace an in-game graphics,
 audio and login check.
 
+The libGDX backend uses LWJGL **3.4.3** (bindings and natives aligned via its BOM).
+On Java 25 this uses LWJGL's FFM backend; Java 8 remains supported. The Gradle
+`:client:run` task and the Illarion launcher enable native access automatically
+when the selected child JVM supports that option. For a direct IDE application
+configuration or distribution script on Java 17+, add
+`--enable-native-access=ALL-UNNAMED` to VM options / `JAVA_OPTS`; omit it on Java 8.
+
+An opt-in desktop integration test starts libGDX with an invisible OpenGL window:
+
+```powershell
+.\gradlew.bat :engine-libgdx:nativeRuntimeTest
+.\gradlew.bat :engine-libgdx:nativeRuntimeTest -PtestJavaVersion=8
+```
+
+The Java 25 test additionally denies legacy Unsafe memory access. These tests
+require working desktop graphics and have been checked on Windows x64.
+LWJGL 3.4 raises the Linux x64 requirement to GLIBC 2.28; other platforms still
+need runtime validation. See [modernization follow-up notes](docs/modernization-follow-up.md)
+for remaining warnings and pre-existing findings.
+
 ### Distributions and launcher
 
 `build` produces the application ZIP/TAR distributions and the standalone
@@ -127,5 +147,6 @@ If you use `build.ps1`, set the IDE's Gradle user home to
 
 The modernization was informed by upstream
 [PR #113](https://github.com/Illarion-eV/Illarion-Java/pull/113), especially its
-JavaFX separation and launcher Java-version detection. Game-library upgrades
-and gameplay bug fixes remain separate from this build migration.
+JavaFX separation and launcher Java-version detection. Except for the LWJGL
+runtime compatibility fix, game-library upgrades and gameplay bug fixes remain
+separate from this build migration.

@@ -18,10 +18,29 @@ apply plugin: 'maven-publish'
 
 base { archivesName = 'illarion_engine_libgdx' }
 dependencies {
+    // Align Java bindings and every native classifier, including transitive libGDX dependencies.
+    api platform('org.lwjgl:lwjgl-bom:3.4.3')
     api project(':engine')
     api "com.badlogicgames.gdx:gdx:1.13.1"
     api "com.badlogicgames.gdx:gdx-backend-lwjgl3:1.13.1"
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:1.13.1:natives-desktop"
+}
+
+// Requires a desktop with OpenGL; deliberately separate from the ordinary unit tests.
+tasks.named('test', Test) { useTestNG { excludeGroups 'nativeRuntime' } }
+tasks.register('nativeRuntimeTest', Test) {
+    description = 'Smoke-test libGDX and LWJGL with a hidden OpenGL window.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useTestNG { includeGroups 'nativeRuntime' }
+    doFirst {
+        if (javaLauncher.get().metadata.languageVersion.asInt() >= 25) {
+            jvmArgs '--enable-native-access=ALL-UNNAMED', '--sun-misc-unsafe-memory-access=deny'
+        } else if (javaLauncher.get().metadata.languageVersion.asInt() >= 17) {
+            jvmArgs '--enable-native-access=ALL-UNNAMED'
+        }
+    }
 }
 
 jar {
