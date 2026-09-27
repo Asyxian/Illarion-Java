@@ -111,25 +111,8 @@ public final class JavaLauncher {
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), Charset.defaultCharset()))) {
 
-                Pattern versionRegex = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)_(\\d+)");
-                Optional<Matcher> versionMatcher = reader.lines()
-                        .filter(s -> s.contains("version"))
-                        .map(versionRegex::matcher)
-                        .filter(Matcher::find)
-                        .findFirst();
+                return reader.lines().anyMatch(JavaLauncher::isSupportedJavaVersion);
 
-                if (versionMatcher.isPresent()) {
-                    Matcher matcher = versionMatcher.get();
-                    int mainVersion = Integer.parseInt(matcher.group(1));
-                    int majorVersion = Integer.parseInt(matcher.group(2));
-                    int minorVersion = Integer.parseInt(matcher.group(3));
-                    int buildNumber = Integer.parseInt(matcher.group(4));
-
-                    log.info("Matched Java version to {}.{}.{}_b{}",
-                            mainVersion, majorVersion, minorVersion, buildNumber);
-
-                    return (mainVersion >= 1) && (majorVersion >= 8) && (buildNumber >= 0);
-                }
             } finally {
                 process.destroy();
             }
@@ -137,6 +120,23 @@ public final class JavaLauncher {
             log.error("Launching {} failed.", executable);
         }
         return false;
+    }
+
+    // Both legacy 1.8.0_... and modern OpenJDK version strings are supported.
+    static boolean isSupportedJavaVersion(String line) {
+        Matcher matcher = Pattern.compile("^(?:java|openjdk) version \"(\\d+)(?:\\.(\\d+))?[^\"]*\"").matcher(line.trim());
+        if (!matcher.find()) {
+            return false;
+        }
+        try {
+            int feature = Integer.parseInt(matcher.group(1));
+            if (feature == 1) {
+                return matcher.group(2) != null && Integer.parseInt(matcher.group(2)) >= 8;
+            }
+            return feature >= 8;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /**
