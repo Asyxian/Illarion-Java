@@ -16,11 +16,12 @@
 package illarion.client.gui.controller.game;
 
 import de.lessvoid.nifty.Nifty;
+import de.lessvoid.nifty.builder.ControlDefinitionBuilder;
 import de.lessvoid.nifty.builder.EffectBuilder;
 import de.lessvoid.nifty.builder.LayerBuilder;
 import de.lessvoid.nifty.builder.PanelBuilder;
 import de.lessvoid.nifty.builder.ScreenBuilder;
-import de.lessvoid.nifty.controls.window.WindowControl;
+import de.lessvoid.nifty.controls.Window;
 import de.lessvoid.nifty.effects.EffectEventId;
 import de.lessvoid.nifty.elements.Element;
 import de.lessvoid.nifty.screen.Screen;
@@ -28,6 +29,7 @@ import de.lessvoid.nifty.screen.ScreenController;
 import de.lessvoid.nifty.spi.input.InputSystem;
 import de.lessvoid.nifty.spi.render.RenderDevice;
 import de.lessvoid.nifty.spi.sound.SoundDevice;
+import illarion.client.graphics.FontLoader;
 import illarion.client.gui.DialogGui;
 import illarion.client.gui.DialogType;
 import illarion.client.gui.GameGui;
@@ -38,15 +40,18 @@ import illarion.client.world.World;
 import illarion.client.world.items.CraftingItem;
 import org.easymock.EasyMock;
 import org.illarion.engine.GameContainer;
+import org.illarion.engine.graphic.Font;
 import org.illarion.nifty.controls.CraftingItemEntry;
 import org.illarion.nifty.controls.DialogCrafting;
 import org.illarion.nifty.controls.DialogCraftingCloseEvent;
+import org.illarion.nifty.controls.DialogMerchant;
 import org.powermock.api.easymock.PowerMock;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockObjectFactory;
 import org.powermock.reflect.Whitebox;
 import org.testng.IObjectFactory;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
 
@@ -57,7 +62,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@PrepareForTest({World.class, NetComm.class})
+@PrepareForTest({World.class, NetComm.class, FontLoader.class})
 @PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
         "ch.qos.logback.*", "org.slf4j.*", "de.lessvoid.nifty.*"})
 public class DialogHandlerTest {
@@ -66,6 +71,8 @@ public class DialogHandlerTest {
     private GameContainer container;
     private Nifty nifty;
     private Element element;
+    private Element merchantElement;
+    private Screen screen;
     private DialogCrafting crafting;
     private NetComm network;
     private int dialogId;
@@ -80,6 +87,18 @@ public class DialogHandlerTest {
     }
 
     private void setUp(boolean hideEffect) {
+        createScreen(hideEffect);
+        prepareCraftingControl();
+        handler = new DialogHandler(null, null, null);
+        Whitebox.setInternalState(handler, "nifty", nifty);
+        Whitebox.setInternalState(handler, "screen", screen);
+        Whitebox.setInternalState(handler, "craftingDialog", crafting);
+        prepareMerchantControl();
+        registerPlaceholderDialogs();
+        prepareWorld();
+    }
+
+    private void createScreen(boolean hideEffect) {
         RenderDevice render = EasyMock.createNiceMock(RenderDevice.class);
         EasyMock.expect(render.getWidth()).andReturn(800).anyTimes();
         EasyMock.expect(render.getHeight()).andReturn(600).anyTimes();
@@ -110,17 +129,20 @@ public class DialogHandlerTest {
 
         layer.panel(panel);
         builder.layer(layer);
-        Screen screen = builder.build(nifty);
+        PanelBuilder merchantPanel = new PanelBuilder("merchantDialog");
+        merchantPanel.width("100px");
+        merchantPanel.height("100px");
+        merchantPanel.visible(false);
+        layer.panel(merchantPanel);
+        screen = builder.build(nifty);
         nifty.addScreen("game", screen);
         nifty.gotoScreen("game");
         element = screen.findElementById("craftingDialog");
         assertFalse(element.isVisible());
+    }
 
-        // Keep Nifty's real visibility, hide effects and WindowClosedEvent behaviour.
-        WindowControl window = new WindowControl();
-        Whitebox.setInternalState(window, "element", element);
-        Whitebox.setInternalState(window, "nifty", nifty);
-        Whitebox.setInternalState(window, "hideOnClose", true);
+    private void prepareCraftingControl() {
+        Window window = createWindow(element);
         crafting = EasyMock.createNiceMock(DialogCrafting.class);
         dialogId = 0;
         selectedIndex = 0;
@@ -153,11 +175,54 @@ public class DialogHandlerTest {
             progress = (Float) EasyMock.getCurrentArguments()[0];
             return null;
         }).anyTimes();
+    }
 
-        handler = new DialogHandler(null, null, null);
-        Whitebox.setInternalState(handler, "nifty", nifty);
-        Whitebox.setInternalState(handler, "screen", screen);
-        Whitebox.setInternalState(handler, "craftingDialog", crafting);
+    private void prepareMerchantControl() {
+        merchantElement = screen.findElementById("merchantDialog");
+        Window merchantWindow = createWindow(merchantElement);
+        DialogMerchant merchant = EasyMock.createNiceMock(DialogMerchant.class);
+        EasyMock.expect(merchant.getElement()).andReturn(merchantElement).anyTimes();
+        EasyMock.expect(merchant.getDialogId()).andReturn(0).anyTimes();
+        merchant.closeWindow();
+        EasyMock.expectLastCall().andAnswer(() -> {
+            merchantWindow.closeWindow();
+            return null;
+        }).anyTimes();
+        EasyMock.replay(merchant);
+        Whitebox.setInternalState(handler, "merchantDialog", merchant);
+    }
+
+    // WindowControl is the existing production superclass; exercise its real close behaviour.
+    @SuppressWarnings("deprecation")
+    private Window createWindow(Element target) {
+        Window window = new de.lessvoid.nifty.controls.window.WindowControl();
+        Whitebox.setInternalState(window, "element", target);
+        Whitebox.setInternalState(window, "nifty", nifty);
+        Whitebox.setInternalState(window, "hideOnClose", true);
+        return window;
+    }
+
+    private void registerPlaceholderDialogs() {
+        // Minimal windows isolate ordering from resource-dependent dialog contents.
+        for (String name : new String[] {"dialog-message", "dialog-input", "dialog-select"}) {
+            ControlDefinitionBuilder definition = new ControlDefinitionBuilder(name);
+            PanelBuilder root = new PanelBuilder();
+            root.width("100px");
+            root.height("100px");
+            root.childLayoutCenter();
+            definition.panel(root);
+            definition.registerControlDefintion(nifty);
+        }
+    }
+
+    private void prepareWorld() {
+        Font font = EasyMock.createNiceMock(Font.class);
+        EasyMock.replay(font);
+        FontLoader fonts = PowerMock.createMock(FontLoader.class);
+        EasyMock.expect(fonts.getFont(FontLoader.TEXT_FONT)).andReturn(font).anyTimes();
+        PowerMock.mockStatic(FontLoader.class);
+        EasyMock.expect(FontLoader.getInstance()).andReturn(fonts).anyTimes();
+        PowerMock.replay(fonts, FontLoader.class);
         updates = new UpdateTaskManager();
         network = PowerMock.createMock(NetComm.class);
         GameGui gui = EasyMock.createMock(GameGui.class);
@@ -343,5 +408,170 @@ public class DialogHandlerTest {
         nifty.update();
         nifty.render(false);
         assertTrue(element.isVisible());
+    }
+
+    @DataProvider(name = "dialogTypes")
+    public Object[][] dialogTypes() {
+        return new Object[][] {
+            {"Crafting"}, {"Merchant"}, {"Message"},
+            {"Input"}, {"Selection"}
+        };
+    }
+
+    private void openDialog(DialogType type) {
+        switch (type) {
+            case Crafting:
+                open(0);
+                break;
+            case Merchant:
+                handler.showMerchantDialog(0, "Merchant", Collections.emptyList());
+                break;
+            case Message:
+                handler.showMessageDialog(0, "Message", "Text");
+                break;
+            case Input:
+                handler.showInputDialog(0, "Input", "Text", 20, false);
+                break;
+            case Selection:
+                handler.showSelectionDialog(0, "Selection", "Text", Collections.emptyList());
+                break;
+            default:
+                throw new AssertionError(type);
+        }
+    }
+
+    private boolean isDialogVisible(DialogType type) {
+        switch (type) {
+            case Crafting:
+                return element.isVisible();
+            case Merchant:
+                return merchantElement.isVisible();
+            case Message:
+                return isWindowVisible("msgDialog0");
+            case Input:
+                return isWindowVisible("inputDialog0");
+            case Selection:
+                return isWindowVisible("selectDialog0");
+            default:
+                throw new AssertionError(type);
+        }
+    }
+
+    private boolean isWindowVisible(String id) {
+        return screen.findElementById("windows").getChildren().stream()
+                .anyMatch(child -> id.equals(child.getId()) && child.isVisible());
+    }
+
+    @Test(dataProvider = "dialogTypes")
+    public void testEarlierCloseDoesNotOvertakeOpen(String typeName) {
+        DialogType type = DialogType.valueOf(typeName);
+        setUp(false);
+        EasyMock.replay(crafting);
+        PowerMock.replay(network);
+        handler.closeDialog(0, EnumSet.of(type));
+        openDialog(type);
+        frame();
+        assertTrue(isDialogVisible(type));
+        PowerMock.verify(network);
+    }
+
+    @Test(dataProvider = "dialogTypes")
+    public void testOpenThenCloseInOneFrameEndsClosed(String typeName) {
+        DialogType type = DialogType.valueOf(typeName);
+        setUp(false);
+        EasyMock.replay(crafting);
+        PowerMock.replay(network);
+        openDialog(type);
+        handler.closeDialog(0, EnumSet.of(type));
+        frame();
+        assertFalse(isDialogVisible(type));
+        PowerMock.verify(network);
+    }
+
+    @Test(dataProvider = "dialogTypes")
+    public void testCloseThenReopenInOneFrameEndsOpen(String typeName) {
+        DialogType type = DialogType.valueOf(typeName);
+        setUp(false);
+        EasyMock.replay(crafting);
+        PowerMock.replay(network);
+        openDialog(type);
+        frame();
+        assertTrue(isDialogVisible(type));
+        handler.closeDialog(0, EnumSet.of(type));
+        openDialog(type);
+        frame();
+        nifty.update();
+        assertTrue(isDialogVisible(type));
+        PowerMock.verify(network);
+    }
+
+    @Test
+    public void testCloseAllDoesNotCloseLaterCraftingRequest() {
+        setUp(false);
+        start();
+        handler.closeDialog(DialogGui.ALL_DIALOGS, EnumSet.allOf(DialogType.class));
+        open(0);
+        frame();
+        assertTrue(element.isVisible());
+    }
+
+    @Test
+    public void testClosePreventsLaterProductionUpdate() {
+        setUp(false);
+        start();
+        close(0);
+        handler.startProductionIndicator(0, 8, 20);
+        frame();
+        assertEquals(amount, 1);
+        assertFalse(handler.isCraftingInProgress());
+    }
+
+    @Test
+    public void testScreenEndDiscardsPendingDialogRequests() {
+        setUp(false);
+        start();
+        open(0);
+        handler.onEndScreen();
+        frame();
+        assertFalse(element.isVisible());
+    }
+
+    @Test
+    public void testQueuedOpenStartAndAbortRunInOrder() {
+        setUp(false);
+        EasyMock.replay(crafting);
+        PowerMock.replay(network);
+        open(0);
+        handler.startProductionIndicator(0, 8, 20);
+        handler.abortProduction(0);
+        frame();
+        assertTrue(element.isVisible());
+        assertEquals(amount, 8);
+        assertEquals(progress, 0.f);
+        assertFalse(handler.isCraftingInProgress());
+    }
+
+    @Test
+    public void testCompletionAfterCloseIsIgnored() {
+        setUp(false);
+        start();
+        close(0);
+        handler.finishProduction(0);
+        frame();
+        assertFalse(element.isVisible());
+        assertEquals(amount, 1);
+        PowerMock.verify(network);
+    }
+
+    @Test
+    public void testCloseRetainsRequestedTypes() {
+        setUp(false);
+        start();
+        EnumSet<DialogType> types = EnumSet.of(DialogType.Crafting);
+        handler.closeDialog(0, types);
+        types.clear();
+        types.add(DialogType.Message);
+        frame();
+        assertFalse(element.isVisible());
     }
 }
