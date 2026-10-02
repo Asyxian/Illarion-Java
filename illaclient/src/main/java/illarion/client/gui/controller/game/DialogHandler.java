@@ -505,6 +505,7 @@ public final class DialogHandler
                 craftingDialog.selectItemByItemIndex(selectedIndex);
             }
         } else {
+            craftingInProgress = false;
             craftingDialog.setDialogId(dialogId);
             craftingDialog.setTitle(title);
             craftingDialog.clearItemList();
@@ -766,8 +767,10 @@ public final class DialogHandler
             }
         }
         if (dialogTypes.contains(DialogType.Crafting)) {
-            if ((craftingDialog != null) && craftingDialog.getElement().isVisible()) {
+            if (craftingDialog != null) {
                 if ((dialogId == ALL_DIALOGS) || (dialogId == craftingDialog.getDialogId())) {
+                    openCraftDialog = false;
+                    craftingInProgress = false;
                     craftingDialog.closeWindow();
                 }
             }
