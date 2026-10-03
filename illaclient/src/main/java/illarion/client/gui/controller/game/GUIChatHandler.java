@@ -22,7 +22,6 @@ import de.lessvoid.nifty.builder.ElementBuilder.Align;
 import de.lessvoid.nifty.controls.ButtonClickedEvent;
 import de.lessvoid.nifty.controls.Label;
 import de.lessvoid.nifty.controls.ScrollPanel;
-import de.lessvoid.nifty.controls.ScrollPanel.AutoScroll;
 import de.lessvoid.nifty.controls.TextField;
 import de.lessvoid.nifty.controls.label.builder.LabelBuilder;
 import de.lessvoid.nifty.elements.Element;
@@ -72,6 +71,18 @@ import java.util.regex.Pattern;
  * @author Martin Karing &lt;nitram@illarion.org&gt;
  */
 public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenController, UpdatableHandler {
+    @Nonnull
+    @Override
+    public Runnable saveScrollPosition() {
+        if (chatLog == null) {
+            return () -> {
+            };
+        }
+
+        ChatScrollPosition position = new ChatScrollPosition(chatLog);
+        return position::restore;
+    }
+
     @Override
     public void activateChatBox() {
         World.getUpdateTaskManager().addTask((container, delta) -> {
@@ -315,15 +326,12 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
         if (chatScroll == null) {
             return;
         }
+        Runnable restorePosition = saveScrollPosition();
         chatScroll.setConstraintHeight(value);
         chatScroll.getParent().setConstraintHeight(SizeValue.def());
         chatScroll.getParent().getParent().setConstraintHeight(SizeValue.def());
         chatScroll.getParent().getParent().getParent().layoutElements();
-        ScrollPanel scrollPanel = chatScroll.getNiftyControl(ScrollPanel.class);
-        if (scrollPanel != null) {
-            scrollPanel.setAutoScroll(AutoScroll.BOTTOM);
-            scrollPanel.setAutoScroll(AutoScroll.OFF);
-        }
+        restorePosition.run();
     }
 
     @Override
@@ -491,7 +499,8 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
         }
 
         dirty = false;
-        ChatScrollPosition position = pendingScrollPosition;
+        ChatScrollPosition position = (pendingScrollPosition == null)
+                ? new ChatScrollPosition(chatLog) : pendingScrollPosition;
         pendingScrollPosition = null;
 
         Element contentPane = chatLog.getElement().findElementById("chatLog");

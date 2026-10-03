@@ -33,7 +33,19 @@ import de.lessvoid.nifty.spi.render.RenderImage;
 import de.lessvoid.nifty.spi.sound.SoundDevice;
 import de.lessvoid.nifty.tools.Color;
 import de.lessvoid.nifty.tools.SizeValue;
+import illarion.client.Game;
+import illarion.client.IllaClient;
+import illarion.client.gui.GameGui;
+import illarion.client.world.World;
+import illarion.common.config.Config;
+import org.illarion.engine.GameContainer;
 import org.easymock.EasyMock;
+import org.powermock.api.easymock.PowerMock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.testng.PowerMockObjectFactory;
+import org.testng.IObjectFactory;
+import org.testng.annotations.ObjectFactory;
 import org.powermock.reflect.Whitebox;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,7 +55,19 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@PrepareForTest({World.class, IllaClient.class})
+@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
+        "ch.qos.logback.*", "org.slf4j.*", "de.lessvoid.nifty.*"})
 public class GUIChatHandlerTest {
+    private Game game;
+    private GameContainer container;
+    private boolean worldInitialised;
+
+    @ObjectFactory
+    public IObjectFactory createObjectFactory() {
+        return new PowerMockObjectFactory();
+    }
+
     private int width;
     private int height;
     private Nifty nifty;
@@ -111,6 +135,22 @@ public class GUIChatHandlerTest {
         Whitebox.setInternalState(handler, "screen", screen);
         Whitebox.setInternalState(handler, "chatLog", scroll);
         Whitebox.setInternalState(handler, "chatLineCounter", new AtomicLong());
+        game = Whitebox.newInstance(Game.class);
+        Whitebox.setInternalState(game, "nifty", nifty);
+        Whitebox.setInternalState(game, "activeListener", -1);
+        container = EasyMock.createNiceMock(GameContainer.class);
+        GameGui gui = EasyMock.createNiceMock(GameGui.class);
+        EasyMock.expect(gui.getChatGui()).andReturn(handler).anyTimes();
+        Config config = EasyMock.createNiceMock(Config.class);
+        EasyMock.replay(container, gui, config);
+        worldInitialised = true;
+        PowerMock.mockStatic(World.class);
+        EasyMock.expect(World.isInitDone()).andAnswer(() -> worldInitialised).anyTimes();
+        EasyMock.expect(World.getGameGui()).andReturn(gui).anyTimes();
+        PowerMock.mockStatic(IllaClient.class);
+        EasyMock.expect(IllaClient.getCfg()).andReturn(config).anyTimes();
+        PowerMock.replay(World.class, IllaClient.class);
+
         appendMessages(60);
         finishLayout();
         assertTrue(scroll.getVerticalPos() > 200, "The fixture must have a scrollable history");
@@ -204,6 +244,90 @@ public class GUIChatHandlerTest {
         Whitebox.setInternalState(handler, "dirty", true);
         finishLayout();
         assertEquals(relativePosition(anchor), previous);
+    }
+
+    @Test
+    public void windowResizeKeepsReadingPosition() {
+        resize(1200, 800);
+        assertEquals(scroll.getVerticalPos(), 200f);
+        resize(800, 600);
+        assertEquals(scroll.getVerticalPos(), 200f);
+    }
+
+    @Test
+    public void windowResizeAtBottomKeepsFollowing() {
+        scrollToBottom();
+        resize(1200, 800);
+        assertAtBottom();
+    }
+
+    @Test
+    public void multipleResizeNotificationsBeforeRenderingKeepReadingPosition() {
+        game.resize(container, 1100, 750);
+        game.resize(container, 1200, 800);
+        width = 1200;
+        height = 800;
+        game.render(container);
+        assertEquals(scroll.getVerticalPos(), 200f);
+        game.render(container);
+        assertEquals(scroll.getVerticalPos(), 200f);
+    }
+
+    @Test
+    public void rewrappingKeepsTheSameMessageVisible() {
+        Element anchor = content.getChildren().get(60);
+        scroll.setVerticalPos(anchor.getY() - content.getY() + 5);
+        float previous = relativePosition(anchor);
+
+        for (Element entry : content.getChildren()) {
+            entry.setConstraintWidth(SizeValue.px(300));
+        }
+
+        resize(800, 600);
+        assertEquals(relativePosition(anchor), previous);
+    }
+
+    @Test
+    public void expandingAndCollapsingTheChatKeepsReadingPosition() throws Exception {
+        Whitebox.invokeMethod(handler, "setHeightOfChatLog", SizeValue.px(500));
+        assertEquals(scroll.getVerticalPos(), 200f);
+        Whitebox.invokeMethod(handler, "setHeightOfChatLog", SizeValue.px(170));
+        assertEquals(scroll.getVerticalPos(), 200f);
+    }
+
+    @Test
+    public void expandingTheChatAtBottomKeepsFollowing() throws Exception {
+        scrollToBottom();
+        Whitebox.invokeMethod(handler, "setHeightOfChatLog", SizeValue.px(500));
+        assertAtBottom();
+    }
+
+    @Test
+    public void resizeWithNewMessagesKeepsReadingPosition() throws Exception {
+        game.resize(container, 1200, 800);
+        appendMessages(3);
+        Whitebox.invokeMethod(handler, "cleanupChatLog");
+        width = 1200;
+        height = 800;
+        game.render(container);
+        assertEquals(scroll.getVerticalPos(), 200f);
+    }
+
+    @Test
+    public void resizingBeforeWorldInitialisationDoesNotAccessChat() {
+        worldInitialised = false;
+        PowerMock.reset(World.class);
+        EasyMock.expect(World.isInitDone()).andReturn(false).anyTimes();
+        PowerMock.replay(World.class);
+        resize(1200, 800);
+        PowerMock.verify(World.class);
+    }
+
+    private void resize(int newWidth, int newHeight) {
+        width = newWidth;
+        height = newHeight;
+        game.resize(container, width, height);
+        game.render(container);
     }
 
     private float relativePosition(Element entry) {
