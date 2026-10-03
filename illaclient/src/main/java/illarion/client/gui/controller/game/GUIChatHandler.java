@@ -249,6 +249,9 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
      */
     private boolean dirty;
 
+    @Nullable
+    private ChatScrollPosition pendingScrollPosition;
+
     /**
      * The pattern used to detect the introduce command.
      */
@@ -449,6 +452,9 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
     }
 
     private void clearChatLog() {
+        pendingScrollPosition = null;
+        dirty = false;
+
         if (chatLog == null) {
             return;
         }
@@ -469,6 +475,12 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
         activeBubbles.clear();
     }
 
+    private void rememberChatPosition() {
+        if ((pendingScrollPosition == null) && (chatLog != null)) {
+            pendingScrollPosition = new ChatScrollPosition(chatLog);
+        }
+    }
+
     /**
      * Remove all entries that do not belong in the list anymore from it. Also update the layout and the scrolling
      * position.
@@ -479,6 +491,8 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
         }
 
         dirty = false;
+        ChatScrollPosition position = pendingScrollPosition;
+        pendingScrollPosition = null;
 
         Element contentPane = chatLog.getElement().findElementById("chatLog");
 
@@ -486,7 +500,10 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
         for (int i = 0; i < (entryCount - 400); i++) {
             Element elementToRemove = contentPane.getChildren().get(i);
             if (i == (entryCount - 401)) {
-                elementToRemove.markForRemoval(() -> chatLog.getElement().layoutElements());
+                elementToRemove.markForRemoval(() -> {
+                    chatLog.getElement().layoutElements();
+                    position.restore();
+                });
             } else {
                 elementToRemove.markForRemoval();
             }
@@ -494,8 +511,7 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
 
         contentPane.setConstraintHeight(SizeValue.def());
         chatLog.getElement().layoutElements();
-        chatLog.setAutoScroll(AutoScroll.BOTTOM);
-        chatLog.setAutoScroll(AutoScroll.OFF);
+        position.restore();
     }
 
     private void updateChatBubbleLocations() {
@@ -533,6 +549,8 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
             return;
         }
         Element contentPane = chatLog.getElement().findElementById("chatLog");
+
+        rememberChatPosition();
 
         long index = chatLineCounter.getAndIncrement();
 
@@ -602,6 +620,7 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
         }
 
         if ((translationLabel.getText() == null) || translationLabel.getText().isEmpty()) {
+            rememberChatPosition();
             translationElement.setMarginTop(SizeValue.def());
             translationElement.setConstraintHeight(SizeValue.def());
             translationLabel.setText(Lang.getMsg("chat.translating"));
@@ -610,6 +629,8 @@ public final class GUIChatHandler implements ChatGui, KeyInputHandler, ScreenCon
             dirty = true;
             translator.translate(sourceLabel.getText(),
                     translation -> World.getUpdateTaskManager().addTask((container, delta) -> {
+                        rememberChatPosition();
+
                         if (translation == null) {
                             translationLabel.setText("");
                             translationElement.setVisible(false);
