@@ -173,8 +173,9 @@ class MoveAnimator implements AnimatedMove {
      */
     void confirmMove(@Nonnull CharMovementMode mode, @Nonnull ServerCoordinate target, int duration) {
         MovingTask task = uncomfirmedMoveTask;
-        if (task == null) {
-            log.debug(marker, "No unconfirmed move found. Schedule the move.");
+        if ((task == null) || (!task.isExecuted() && !taskQueue.contains(task))) {
+            log.debug(marker, "No queued or executing prediction found. Schedule the move.");
+            uncomfirmedMoveTask = null;
             confirmedMoveTask = null;
             scheduleMove(mode, target, duration);
         } else {
@@ -233,8 +234,14 @@ class MoveAnimator implements AnimatedMove {
     void cancelAll() {
         log.debug("All moves canceled!");
         taskQueue.clear();
-        moveAnimation.stop();
+        uncomfirmedMoveTask = null;
+        confirmedMoveTask = null;
         lastRequestedTurn = null;
+
+        // stop() reports position and completion synchronously; neither may request another step.
+        reportingDone = true;
+        moveAnimation.stop();
+        animationInProgress = false;
     }
 
     void executeTurn(@Nonnull Direction direction) {
