@@ -56,7 +56,7 @@ import static org.testng.Assert.assertEquals;
 /** Tests the real refresh and marker lifecycle without starting a graphics engine or a server. */
 @PrepareForTest({World.class, GameMap.class, MapTile.class})
 @PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*"})
+        "ch.qos.logback.*", "org.slf4j.*", "org.easymock.cglib.*"})
 public class QuestMarkerRefreshTest {
     private static final ServerCoordinate FIRST_TARGET = new ServerCoordinate(100, 100, 0);
     private static final ServerCoordinate SECOND_TARGET = new ServerCoordinate(500, 500, 0);
