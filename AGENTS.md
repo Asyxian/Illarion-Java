@@ -84,6 +84,8 @@ do not reintroduce PowerMock or the temporary Java 8 test setup.
 Read [the Java 25 migration notes](docs/java25-migration.md) before changing
 Java targets, test dependencies or JVM startup options. Keep the regression
 coverage and the consistent native-library options across launch paths.
+Keep JavaFX on the launcher's module path or in its linked runtime, separately
+from the application classpath; its native-access option includes `javafx.graphics`.
 
 Keep existing independent upstream PRs separate from the fork's integration.
 Do not change their Java requirements merely to match this fork. For future

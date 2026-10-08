@@ -74,7 +74,8 @@ on the independent upstream PR branches, not on this fork's `develop`.
 The old `-PtestJavaVersion=8` override is rejected with an explanatory error.
 
 Gradle application runs, generated distribution scripts and the packaged
-launcher use these JVM options:
+launcher prevent legacy Unsafe access and explicitly permit required native
+libraries. The client and other non-JavaFX applications use:
 
 ```text
 --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=deny
@@ -111,8 +112,15 @@ a Gradle deprecation warning about `Configuration.setVisible`.
 ```
 
 The launcher distribution includes OpenJFX for the build machine's platform.
+Its JavaFX JARs are stored in `javafx/` and loaded as named modules, separately
+from application libraries in `lib/`. Use `:download:run` for a delegated IDE
+launch. Direct IDE launches additionally require `--module-path=<javafx-directory>`,
+`--add-modules=javafx.controls,javafx.fxml` and native access for
+`ALL-UNNAMED,javafx.graphics` rather than only `ALL-UNNAMED`.
 `:download:packageLauncher` creates a local `jpackage` application image with
-its own Java runtime; it does not replace the production installer pipeline.
+its own Java runtime and linked JavaFX modules. The runtime keeps the full JDK
+module set because it can also launch the client and editors. It does not
+replace the production installer pipeline.
 Build it separately for each supported OS/architecture. The removed JavaFX Ant
 plugin depends on JDK 8 internals; the historical install4j configuration remains
 in the repository, but its installer/signing/upload tasks are not migrated here.

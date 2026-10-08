@@ -41,6 +41,26 @@ if (arch in ['aarch64', 'arm64']) {
     fxPlatform += '-aarch64'
 }
 
+configurations {
+    javafxModules {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+
+    compileOnly.extendsFrom(javafxModules)
+    testCompileOnly.extendsFrom(javafxModules)
+}
+
+def fxRootModules = 'javafx.controls,javafx.fxml'
+def launcherJvmArgs = rootProject.ext.applicationJvmArgs.findAll {
+    !it.startsWith('--enable-native-access=')
+} + ['--enable-native-access=ALL-UNNAMED,javafx.graphics', "--add-modules=${fxRootModules}".toString()]
+
+application {
+    applicationDefaultJvmArgs = launcherJvmArgs
+}
+
 dependencies {
     api project(':common')
     api "org.slf4j:slf4j-api:${project.ext.slf4jVersion}"
@@ -59,8 +79,52 @@ dependencies {
 
 dependencies {
     ['base', 'graphics', 'controls', 'fxml'].each { module ->
-        implementation("org.openjfx:javafx-${module}:25.0.4:${fxPlatform}") {
+        javafxModules("org.openjfx:javafx-${module}:25.0.4:${fxPlatform}") {
             transitive = false
+        }
+    }
+}
+
+tasks.named('run', JavaExec) {
+    inputs.files(configurations.javafxModules)
+    jvmArgs = launcherJvmArgs
+
+    doFirst {
+        jvmArgs '--module-path', configurations.javafxModules.asPath
+    }
+}
+
+tasks.withType(Test).configureEach {
+    inputs.files(configurations.javafxModules)
+    jvmArgs launcherJvmArgs
+
+    doFirst {
+        jvmArgs '--module-path', configurations.javafxModules.asPath
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from(configurations.javafxModules) {
+                into 'javafx'
+            }
+        }
+    }
+}
+
+tasks.named('startScripts') {
+    doLast {
+        // Keep paths relative to the installed distribution, including paths containing spaces.
+        [[windowsScript, '-classpath "%CLASSPATH%"', '--module-path "%APP_HOME%\\javafx" '],
+         [unixScript, '-classpath "$CLASSPATH"', '--module-path "$APP_HOME/javafx" ']].each { script ->
+            def content = script[0].getText('UTF-8')
+
+            if (content.count(script[1]) != 1) {
+                throw new GradleException("Cannot add the JavaFX module path to ${script[0].name}.")
+            }
+
+            script[0].setText(content.replace(script[1], script[2] + script[1]), 'UTF-8')
         }
     }
 }
@@ -94,6 +158,8 @@ tasks.register('packageLauncher', Exec) {
     inputs.dir(tasks.named('installDist').map {
         it.destinationDir
     })
+    inputs.files(configurations.javafxModules)
+    inputs.property('launcherJvmArgs', launcherJvmArgs)
 
     outputs.dir(destination.map {
         it.dir(imageName)
@@ -112,7 +178,10 @@ tasks.register('packageLauncher', Exec) {
             '--dest', destination.get().asFile,
             '--main-jar', tasks.named('jar', Jar).get().archiveFileName.get(),
             '--main-class', application.mainClass.get(),
-            '--java-options', rootProject.ext.applicationJvmArgs.join(' '),
+            '--module-path', configurations.javafxModules.asPath,
+            // Retain the full JDK module set for applications launched by this bundled runtime.
+            '--add-modules', 'ALL-MODULE-PATH',
+            '--java-options', launcherJvmArgs.join(' '),
             '--jlink-options', '--strip-debug --no-man-pages --no-header-files',
             '--vendor', 'Illarion e.V.'
     }
