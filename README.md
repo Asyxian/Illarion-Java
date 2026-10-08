@@ -38,6 +38,14 @@ Build
 Install **JDK 25**, set `JAVA_HOME` to that installation and use the checked-in
 **Gradle 9.8.0 wrapper**. A JDK with bundled JavaFX is no longer required.
 
+During branch integration, the client regression tests additionally require
+**JDK 8**, because their upstream PowerMock fixtures cannot run on Java 25.
+Gradle selects Java 8 only for `:client:test`; compilation, the other tests and
+`:client:run` use Java 25. If needed, pass
+`-Porg.gradle.java.installations.paths=/path/to/jdk8` to locate that installation.
+Replacing these fixtures belongs to the separate Java 25 migration; no tests
+are skipped to accommodate this transition.
+
 ```sh
 ./gradlew classes test
 ./gradlew build

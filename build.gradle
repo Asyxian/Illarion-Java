@@ -118,7 +118,8 @@ subprojects {
     }
 
     dependencies {
-        testImplementation 'org.testng:testng:7.5.1'
+        // Keep the client PowerMock suite compatible until its separate Java 25 migration.
+        testImplementation "org.testng:testng:${project.name == 'client' ? '6.9.10' : '7.5.1'}"
         api 'org.jetbrains:annotations:15.0'
         api 'com.google.code.findbugs:jsr305:3.0.1'
     }

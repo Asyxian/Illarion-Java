@@ -28,6 +28,10 @@ application {
 }
 
 dependencies {
+    testImplementation 'org.easymock:easymock:3.4'
+    testImplementation 'org.powermock:powermock-module-testng:1.6.4'
+    testImplementation 'org.powermock:powermock-api-easymock:1.6.4'
+
     api project(':common')
     api project(':engine')
     runtimeOnly project(':engine-libgdx')
@@ -71,6 +75,16 @@ jar {
                 'Implementation-Version': project.ext.fullVersion,
                 'Source-Branch': project.ext.branch,
         )
+    }
+}
+
+// The upstream regression fixtures use PowerMock's Java 8 class loader.
+// Migrate these fixtures before raising the client test JVM to Java 25.
+tasks.named('test', Test) {
+    if (!providers.gradleProperty('testJavaVersion').isPresent()) {
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(8)
+        }
     }
 }
 
