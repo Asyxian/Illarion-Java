@@ -1,7 +1,7 @@
 /*
  * This file is part of the Illarion project.
  *
- * Copyright © 2015 - Illarion e.V.
+ * Copyright © 2016 - Illarion e.V.
  *
  * Illarion is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +21,7 @@ apply from: '../versions.gradle'
 ['targetDistDir', 'install4jDir', 'install4jTargetDir', 'keyFile'].each { legacyProperty ->
     if (project.hasProperty(legacyProperty)) {
         throw new GradleException("${legacyProperty} belongs to the retired JavaFX/install4j release pipeline. " +
-                'See README.md: release packaging requires a separate migration.')
+                'Use :download:packageLauncher; see README.md for release packaging limitations.')
     }
 }
 
@@ -82,6 +82,40 @@ jar {
                  'Implementation-Title': 'Illarion Launcher', \
                  'Implementation-Vendor': 'Illarion e.V.',\
                   'Implementation-Version': project.ext.fullVersion
+    }
+}
+
+// Standard distributions replace the JDK-8-only JavaFX/Ant packaging plugin.
+// jpackage creates a self-contained image on the host platform; it does not publish or install it.
+tasks.register('packageLauncher', Exec) {
+    dependsOn tasks.named('installDist')
+    def destination = layout.buildDirectory.dir('package')
+    def imageName = os.contains('mac') ? 'IllarionLauncher.app' : 'IllarionLauncher'
+
+    inputs.dir(tasks.named('installDist').map {
+        it.destinationDir
+    })
+
+    outputs.dir(destination.map {
+        it.dir(imageName)
+    })
+
+    doFirst {
+        delete destination.get().dir(imageName)
+
+        def launcher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(25)
+        }.get()
+        def executableName = os.contains('win') ? 'jpackage.exe' : 'jpackage'
+        commandLine launcher.metadata.installationPath.file("bin/${executableName}").asFile,
+            '--type', 'app-image', '--name', 'IllarionLauncher',
+            '--input', new File(tasks.named('installDist').get().destinationDir, 'lib'),
+            '--dest', destination.get().asFile,
+            '--main-jar', tasks.named('jar', Jar).get().archiveFileName.get(),
+            '--main-class', application.mainClass.get(),
+            '--java-options', '--enable-native-access=ALL-UNNAMED',
+            '--jlink-options', '--strip-debug --no-man-pages --no-header-files',
+            '--vendor', 'Illarion e.V.'
     }
 }
 

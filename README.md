@@ -28,6 +28,10 @@ For further information check out our homepage: https://illarion.org
 
 Any changes to the applications can be applied using pull requests.
 
+This fork integrates changes on `develop`; `master` is reserved for releases.
+See [AGENTS.md](AGENTS.md) for branch conventions and
+[the coding-style checklist](docs/coding-style.md) for mandatory contribution rules.
+
 Build
 -----
 
@@ -66,11 +70,18 @@ The build JVM and compilation targets are separate:
 | Resource converter Gradle plugin | Java 17 | Uses the current Gradle API and bundled Groovy. |
 | Downloader/launcher | Java 25 | Builds against separately resolved OpenJFX 25.0.4. |
 
-Compilation compatibility is not a full runtime guarantee. This migration
-does not update the game's native libraries or the launcher's child-JVM
-detection. Running the game on Java 25 and using the launcher with modern child
-JVMs require a separate runtime follow-up. In particular, the existing launcher
-still expects legacy Java version strings when locating a child JVM.
+These are transitional targets retained during branch integration. This fork
+will adopt Java 25 for all applications in a separate, validated migration.
+
+The integrated runtime follow-up aligns LWJGL with version 3.4.3, recognises
+modern child-JVM version strings and avoids obsolete launcher options.
+`:client:run` enables native access on Java 17+. When using generated client
+scripts or a direct IDE application configuration, supply
+`--enable-native-access=ALL-UNNAMED` through `JAVA_OPTS` or VM options on Java 17+.
+See [the runtime notes](docs/modernization-follow-up.md) for platform limitations.
+
+The opt-in `:engine-libgdx:nativeRuntimeTest` exercises a hidden OpenGL window.
+It requires desktop graphics and denies legacy Unsafe memory access on Java 25.
 
 To run the existing game/library tests on an additional installed JDK 8:
 
@@ -99,6 +110,8 @@ a Gradle deprecation warning about `Configuration.setVisible`.
 ```
 
 The launcher distribution includes OpenJFX for the build machine's platform.
+`:download:packageLauncher` creates a local `jpackage` application image with
+its own Java runtime; it does not replace the production installer pipeline.
 Build it separately for each supported OS/architecture. The removed JavaFX Ant
 plugin depends on JDK 8 internals; the historical install4j configuration remains
 in the repository, but its installer/signing/upload tasks are not migrated here.
@@ -133,6 +146,10 @@ IDE integration
 Import the root Gradle project using its wrapper. In IntelliJ IDEA, select
 **JDK 25 as the Gradle JVM**; this is separate from the JVM running IntelliJ.
 Gradle supplies the per-module compilation settings.
+
+The optional Windows helper `build.ps1` uses `.gradle/gradle-user-home` when
+`GRADLE_USER_HOME` is unset. Configure the same Gradle user home in IntelliJ
+to reuse that cache.
 
 The migration follows up on [PR #113](https://github.com/Illarion-eV/Illarion-Java/pull/113).
 Unlike a small wrapper-only upgrade, Gradle 9 requires replacing removed build

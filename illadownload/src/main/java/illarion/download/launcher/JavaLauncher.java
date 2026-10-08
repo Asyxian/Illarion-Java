@@ -73,16 +73,16 @@ public final class JavaLauncher {
         executablePaths = OSDetection.isMacOSX() ? new MacOsXJavaExecutableIterable() : new JavaExecutableIterable();
 
         for (Path executable : executablePaths) {
-            if (isJavaExecutableWorking(executable)) {
+            int javaVersion = getJavaVersion(executable);
+
+            if (javaVersion >= 8) {
                 List<String> callList = new ArrayList<>();
                 callList.add(escapePath(executable.toString()));
+                callList.addAll(runtimeOptions(javaVersion, cfg.getBoolean("launchAggressive")));
                 callList.add("-classpath");
                 callList.add(classPathString);
                 if (snapshot) {
                     callList.add("-Dillarion.server=devserver");
-                }
-                if (cfg.getBoolean("launchAggressive")) {
-                    callList.add("-XX:+AggressiveOpts");
                 }
                 callList.add(startupClass);
                 printCallList(callList);
@@ -100,9 +100,9 @@ public final class JavaLauncher {
      * This function is used to check if the java executable has the proper version.
      *
      * @param executable the path to the executable
-     * @return {@code true} in case java meets the required specifications
+     * @return the detected Java feature version, or zero if detection failed
      */
-    private static boolean isJavaExecutableWorking(@Nonnull Path executable) {
+    private static int getJavaVersion(@Nonnull Path executable) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(executable.toString(), "-version");
             processBuilder.redirectErrorStream(true);
@@ -111,32 +111,54 @@ public final class JavaLauncher {
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), Charset.defaultCharset()))) {
 
-                Pattern versionRegex = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)_(\\d+)");
-                Optional<Matcher> versionMatcher = reader.lines()
-                        .filter(s -> s.contains("version"))
-                        .map(versionRegex::matcher)
-                        .filter(Matcher::find)
-                        .findFirst();
+                return reader.lines().mapToInt(JavaLauncher::parseJavaVersion)
+                        .filter(version -> version > 0).findFirst().orElse(0);
 
-                if (versionMatcher.isPresent()) {
-                    Matcher matcher = versionMatcher.get();
-                    int mainVersion = Integer.parseInt(matcher.group(1));
-                    int majorVersion = Integer.parseInt(matcher.group(2));
-                    int minorVersion = Integer.parseInt(matcher.group(3));
-                    int buildNumber = Integer.parseInt(matcher.group(4));
-
-                    log.info("Matched Java version to {}.{}.{}_b{}",
-                            mainVersion, majorVersion, minorVersion, buildNumber);
-
-                    return (mainVersion >= 1) && (majorVersion >= 8) && (buildNumber >= 0);
-                }
             } finally {
                 process.destroy();
             }
         } catch (IOException e) {
             log.error("Launching {} failed.", executable);
         }
-        return false;
+
+        return 0;
+    }
+
+    // Both legacy 1.8.0_... and modern OpenJDK version strings are supported.
+    static int parseJavaVersion(String line) {
+        Pattern versionPattern = Pattern.compile("^(?:java|openjdk) version \"(\\d+)(?:\\.(\\d+))?[^\"]*\"");
+        Matcher matcher = versionPattern.matcher(line.trim());
+
+        if (!matcher.find()) {
+            return 0;
+        }
+
+        try {
+            int feature = Integer.parseInt(matcher.group(1));
+
+            if (feature == 1) {
+                return matcher.group(2) != null ? Integer.parseInt(matcher.group(2)) : 0;
+            }
+
+            return feature;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    static List<String> runtimeOptions(int javaVersion, boolean aggressive) {
+        List<String> options = new ArrayList<>();
+
+        if (javaVersion >= 17) {
+            options.add("--enable-native-access=ALL-UNNAMED");
+        }
+
+        // Deprecated in Java 11 and removed in Java 12.
+        if (aggressive && javaVersion >= 8 && javaVersion < 11) {
+            options.add("-XX:+AggressiveOpts");
+        }
+
+        return options;
     }
 
     /**

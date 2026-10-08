@@ -76,6 +76,12 @@ jar {
 
 run {
     jvmArgs '-Dillarion.server=devserver'
+
+    doFirst {
+        if (javaLauncher.get().metadata.languageVersion.asInt() >= 17) {
+            jvmArgs '--enable-native-access=ALL-UNNAMED'
+        }
+    }
 }
 
 task sourceJar(type: Jar) {
