@@ -31,6 +31,8 @@ Any changes to the applications can be applied using pull requests.
 This fork integrates changes on `develop`; `master` is reserved for releases.
 See [AGENTS.md](AGENTS.md) for branch conventions and
 [the coding-style checklist](docs/coding-style.md) for mandatory contribution rules.
+The [integration notes](docs/fork-integration.md) record the contributing branches,
+test-environment adjustments and validation results.
 
 Build
 -----
