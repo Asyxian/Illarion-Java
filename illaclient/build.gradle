@@ -28,9 +28,10 @@ application {
 }
 
 dependencies {
-    testImplementation 'org.easymock:easymock:3.4'
-    testImplementation 'org.powermock:powermock-module-testng:1.6.4'
-    testImplementation 'org.powermock:powermock-api-easymock:1.6.4'
+    // Older CGLIB cannot read method-parameter metadata emitted by modern javac.
+    testImplementation 'org.easymock:easymock:4.3'
+    testImplementation 'org.powermock:powermock-module-testng:2.0.9'
+    testImplementation 'org.powermock:powermock-api-easymock:2.0.9'
 
     api project(':common')
     api project(':engine')
