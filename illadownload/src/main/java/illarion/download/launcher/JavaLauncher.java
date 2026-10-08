@@ -15,7 +15,6 @@
  */
 package illarion.download.launcher;
 
-import illarion.common.config.Config;
 import illarion.common.util.DirectoryManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +36,8 @@ import java.util.stream.Collectors;
  * @author Martin Karing
  */
 public final class JavaLauncher {
+    private static final int MINIMUM_JAVA_VERSION = 25;
+
     /**
      * This instance of the logger takes care for the logging output of this class.
      */
@@ -50,15 +51,12 @@ public final class JavaLauncher {
     private String errorData;
 
     private final boolean snapshot;
-    @Nonnull
-    private final Config cfg;
 
     /**
      * Construct a new launcher and set the classpath and the class to launch.
      */
-    public JavaLauncher(@Nonnull Config cfg, boolean snapshot) {
+    public JavaLauncher(boolean snapshot) {
         this.snapshot = snapshot;
-        this.cfg = cfg;
     }
 
     /**
@@ -75,10 +73,10 @@ public final class JavaLauncher {
         for (Path executable : executablePaths) {
             int javaVersion = getJavaVersion(executable);
 
-            if (javaVersion >= 8) {
+            if (isSupportedJavaVersion(javaVersion)) {
                 List<String> callList = new ArrayList<>();
                 callList.add(escapePath(executable.toString()));
-                callList.addAll(runtimeOptions(javaVersion, cfg.getBoolean("launchAggressive")));
+                callList.addAll(runtimeOptions());
                 callList.add("-classpath");
                 callList.add(classPathString);
                 if (snapshot) {
@@ -93,6 +91,11 @@ public final class JavaLauncher {
                 }
             }
         }
+
+        if (errorData == null) {
+            errorData = "Java " + MINIMUM_JAVA_VERSION + " or newer is required to launch this application.";
+        }
+
         return false;
     }
 
@@ -146,19 +149,12 @@ public final class JavaLauncher {
         }
     }
 
-    static List<String> runtimeOptions(int javaVersion, boolean aggressive) {
-        List<String> options = new ArrayList<>();
+    static boolean isSupportedJavaVersion(int javaVersion) {
+        return javaVersion >= MINIMUM_JAVA_VERSION;
+    }
 
-        if (javaVersion >= 17) {
-            options.add("--enable-native-access=ALL-UNNAMED");
-        }
-
-        // Deprecated in Java 11 and removed in Java 12.
-        if (aggressive && javaVersion >= 8 && javaVersion < 11) {
-            options.add("-XX:+AggressiveOpts");
-        }
-
-        return options;
+    static List<String> runtimeOptions() {
+        return List.of("--enable-native-access=ALL-UNNAMED", "--sun-misc-unsafe-memory-access=deny");
     }
 
     /**

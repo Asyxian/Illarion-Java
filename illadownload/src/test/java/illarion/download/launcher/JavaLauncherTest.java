@@ -16,7 +16,7 @@ package illarion.download.launcher;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
+import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 
@@ -25,11 +25,14 @@ public class JavaLauncherTest {
     public Object[][] versions() {
         return new Object[][] {
             {"java version \"1.7.0_80\"", false},
-            {"java version \"1.8.0_504\"", true},
-            {"openjdk version \"1.8.0_504\"", true},
-            {"openjdk version \"17.0.16\" 2025-07-15", true},
+            {"java version \"1.8.0_504\"", false},
+            {"openjdk version \"1.8.0_504\"", false},
+            {"openjdk version \"17.0.16\" 2025-07-15", false},
+            {"openjdk version \"21.0.8\"", false},
+            {"openjdk version \"24.0.2\"", false},
             {"openjdk version \"25\" 2025-09-16", true},
             {"java version \"25.0.4.1\" 2026-07-21 LTS", true},
+            {"openjdk version \"26\"", true},
             {"OpenJDK Runtime Environment", false},
             {"java version \"1.6.0_45\"", false},
             {"garbage", false}
@@ -38,19 +41,13 @@ public class JavaLauncherTest {
 
     @Test(dataProvider = "versions")
     public void recognisesSupportedRuntime(String line, boolean expected) {
-        assertEquals(JavaLauncher.parseJavaVersion(line) >= 8, expected);
+        assertEquals(JavaLauncher.isSupportedJavaVersion(JavaLauncher.parseJavaVersion(line)), expected);
     }
 
     @Test
-    public void runtimeFlagsFollowTheChildJvmVersion() {
-        assertEquals(JavaLauncher.runtimeOptions(8, false), Collections.emptyList());
-        assertEquals(JavaLauncher.runtimeOptions(8, true), Collections.singletonList("-XX:+AggressiveOpts"));
-        assertEquals(JavaLauncher.runtimeOptions(11, true), Collections.emptyList());
-        assertEquals(JavaLauncher.runtimeOptions(16, false), Collections.emptyList());
-        assertEquals(JavaLauncher.runtimeOptions(17, false),
-                Collections.singletonList("--enable-native-access=ALL-UNNAMED"));
-        assertEquals(JavaLauncher.runtimeOptions(25, true),
-                Collections.singletonList("--enable-native-access=ALL-UNNAMED"));
+    public void runtimeFlagsEnableNativeAccessWithoutLegacyUnsafe() {
+        assertEquals(JavaLauncher.runtimeOptions(),
+                List.of("--enable-native-access=ALL-UNNAMED", "--sun-misc-unsafe-memory-access=deny"));
         assertEquals(JavaLauncher.parseJavaVersion("java version \"1.8.0_504\""), 8);
         assertEquals(JavaLauncher.parseJavaVersion("openjdk version \"25\""), 25);
     }

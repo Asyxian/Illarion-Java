@@ -31,7 +31,6 @@ base {
 
 application {
     mainClass = 'illarion.download.Application'
-    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
 }
 
 def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
@@ -113,7 +112,7 @@ tasks.register('packageLauncher', Exec) {
             '--dest', destination.get().asFile,
             '--main-jar', tasks.named('jar', Jar).get().archiveFileName.get(),
             '--main-class', application.mainClass.get(),
-            '--java-options', '--enable-native-access=ALL-UNNAMED',
+            '--java-options', rootProject.ext.applicationJvmArgs.join(' '),
             '--jlink-options', '--strip-debug --no-man-pages --no-header-files',
             '--vendor', 'Illarion e.V.'
     }

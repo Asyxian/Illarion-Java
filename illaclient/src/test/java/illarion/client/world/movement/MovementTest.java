@@ -20,6 +20,8 @@ import illarion.client.graphics.MoveAnimation;
 import illarion.client.net.NetComm;
 import illarion.client.net.client.AbstractCommand;
 import illarion.client.net.client.MoveCmd;
+import illarion.client.test.ScopedMocks;
+import illarion.client.test.TestObjects;
 import illarion.client.util.UpdateTaskManager;
 import illarion.client.world.Char;
 import illarion.client.world.CharMovementMode;
@@ -28,23 +30,18 @@ import illarion.client.world.World;
 import illarion.common.types.CharacterId;
 import illarion.common.types.Direction;
 import illarion.common.types.ServerCoordinate;
-import org.easymock.EasyMock;
 import org.illarion.engine.GameContainer;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.powermock.reflect.Whitebox;
-import org.testng.IObjectFactory;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
 
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,14 +50,13 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@PrepareForTest({World.class, Player.class, Char.class, MapDisplayManager.class, NetComm.class})
-@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*"})
-public class MovementTest {
+public class MovementTest extends ScopedMocks {
     private static final ServerCoordinate ORIGIN = new ServerCoordinate(359, 876, 0);
     private static final ServerCoordinate FIRST_STEP = new ServerCoordinate(359, 875, 0);
     private static final ServerCoordinate WARP = new ServerCoordinate(359, 878, 1);
     private static final ServerCoordinate SECOND_STEP = new ServerCoordinate(358, 877, 1);
+
+    private MockedStatic<World> world;
     private Movement movement;
     private MoveAnimator animator;
     private UpdateTaskManager updates;
@@ -70,11 +66,6 @@ public class MovementTest {
     private Direction direction;
     private int commandsSent;
 
-    @ObjectFactory
-    public IObjectFactory createObjectFactory() {
-        return new PowerMockObjectFactory();
-    }
-
     @BeforeMethod
     public void setUp() {
         location = ORIGIN;
@@ -82,53 +73,47 @@ public class MovementTest {
         commandsSent = 0;
         updates = new UpdateTaskManager();
         pendingTasks = new ConcurrentLinkedQueue<>();
-        container = EasyMock.createNiceMock(GameContainer.class);
-        Player player = PowerMock.createNiceMock(Player.class);
-        Char character = PowerMock.createNiceMock(Char.class);
-        MapDisplayManager display = PowerMock.createNiceMock(MapDisplayManager.class);
-        NetComm network = PowerMock.createNiceMock(NetComm.class);
-        MoveAnimation animation = EasyMock.createNiceMock(MoveAnimation.class);
-        ExecutorService executor = EasyMock.createNiceMock(ExecutorService.class);
-        EasyMock.expect(executor.submit(EasyMock.anyObject(Runnable.class))).andAnswer(() -> {
-            pendingTasks.add((Runnable) EasyMock.getCurrentArguments()[0]);
+        container = Mockito.mock(GameContainer.class);
+        Player player = Mockito.mock(Player.class);
+        Char character = Mockito.mock(Char.class);
+        MapDisplayManager display = Mockito.mock(MapDisplayManager.class);
+        NetComm network = Mockito.mock(NetComm.class);
+        MoveAnimation animation = Mockito.mock(MoveAnimation.class);
+        ExecutorService executor = Mockito.mock(ExecutorService.class);
+        Mockito.when(executor.submit(Mockito.any(Runnable.class))).thenAnswer(invocation -> {
+            pendingTasks.add((Runnable) invocation.getArguments()[0]);
             return CompletableFuture.completedFuture(null);
-        }).anyTimes();
-        EasyMock.expect(player.getCharacter()).andReturn(character).anyTimes();
-        EasyMock.expect(player.getLocation()).andAnswer(() -> location).anyTimes();
-        EasyMock.expect(character.getLocation()).andAnswer(() -> location).anyTimes();
-        player.setLocation(EasyMock.anyObject(ServerCoordinate.class));
-        EasyMock.expectLastCall().andAnswer(this::updateLocation).anyTimes();
-        player.updateLocation(EasyMock.anyObject(ServerCoordinate.class));
-        EasyMock.expectLastCall().andAnswer(this::updateLocation).anyTimes();
-        character.setDirection(EasyMock.anyObject(Direction.class));
-        EasyMock.expectLastCall().andAnswer(() -> {
-            direction = (Direction) EasyMock.getCurrentArguments()[0];
+        });
+        Mockito.when(player.getCharacter()).thenReturn(character);
+        Mockito.when(player.getLocation()).thenAnswer(invocation -> location);
+        Mockito.when(character.getLocation()).thenAnswer(invocation -> location);
+        Mockito.doAnswer(this::updateLocation).when(player).setLocation(Mockito.any(ServerCoordinate.class));
+        Mockito.doAnswer(this::updateLocation).when(player).updateLocation(Mockito.any(ServerCoordinate.class));
+        Mockito.doAnswer(invocation -> {
+            direction = (Direction) invocation.getArguments()[0];
             return null;
-        }).anyTimes();
-        network.sendCommand(EasyMock.anyObject(AbstractCommand.class));
-        EasyMock.expectLastCall().andAnswer(() -> {
+        }).when(character).setDirection(Mockito.any(Direction.class));
+        Mockito.doAnswer(invocation -> {
             commandsSent++;
             return null;
-        }).anyTimes();
-        EasyMock.replay(container, player, character, display, network, animation, executor);
+        }).when(network).sendCommand(Mockito.any(AbstractCommand.class));
 
-        movement = Whitebox.newInstance(Movement.class);
-        Whitebox.setInternalState(movement, "player", player);
-        Whitebox.setInternalState(movement, "playerLocation", ORIGIN);
-        Whitebox.setInternalState(movement, "executorService", executor);
-        Whitebox.setInternalState(movement, "moveAnimation", animation);
+        movement = TestObjects.newInstance(Movement.class);
+        TestObjects.setInternalState(movement, "player", player);
+        TestObjects.setInternalState(movement, "playerLocation", ORIGIN);
+        TestObjects.setInternalState(movement, "executorService", executor);
+        TestObjects.setInternalState(movement, "moveAnimation", animation);
         animator = new MoveAnimator(movement, animation);
-        Whitebox.setInternalState(movement, "animator", animator);
-        PowerMock.mockStatic(World.class);
-        EasyMock.expect(World.getPlayer()).andReturn(player).anyTimes();
-        EasyMock.expect(World.getUpdateTaskManager()).andReturn(updates).anyTimes();
-        EasyMock.expect(World.getMapDisplay()).andReturn(display).anyTimes();
-        EasyMock.expect(World.getNet()).andReturn(network).anyTimes();
-        PowerMock.replay(World.class);
+        TestObjects.setInternalState(movement, "animator", animator);
+        world = scoped(Mockito.mockStatic(World.class));
+        world.when(World::getPlayer).thenReturn(player);
+        world.when(World::getUpdateTaskManager).thenReturn(updates);
+        world.when(World::getMapDisplay).thenReturn(display);
+        world.when(World::getNet).thenReturn(network);
     }
 
-    private Object updateLocation() {
-        location = (ServerCoordinate) EasyMock.getCurrentArguments()[0];
+    private Object updateLocation(InvocationOnMock invocation) {
+        location = (ServerCoordinate) invocation.getArguments()[0];
         return null;
     }
 
@@ -169,7 +154,7 @@ public class MovementTest {
         drainTasks();
         assertEquals(location, SECOND_STEP);
         assertEquals(movement.getServerLocation(), SECOND_STEP);
-        assertFalse(Whitebox.<Boolean>getInternalState(movement, "stepInProgress"));
+        assertFalse(TestObjects.<Boolean>getInternalState(movement, "stepInProgress"));
     }
 
     @Test
@@ -278,10 +263,10 @@ public class MovementTest {
     @Test
     public void predictionCorrectionDoesNotDiscardLaterServerConfirmations() {
         MovingTask prediction = new MovingTask(animator, CharMovementMode.Walk, ORIGIN, 400);
-        Whitebox.setInternalState(prediction, "executed", true);
-        Whitebox.setInternalState(animator, "uncomfirmedMoveTask", prediction);
-        MoveAnimation animation = Whitebox.getInternalState(movement, "moveAnimation");
-        Whitebox.setInternalState(animation, "running", true);
+        TestObjects.setInternalState(prediction, "executed", true);
+        TestObjects.setInternalState(animator, "uncomfirmedMoveTask", prediction);
+        MoveAnimation animation = TestObjects.getInternalState(movement, "moveAnimation");
+        Mockito.when(animation.isRunning()).thenReturn(true);
         confirm(FIRST_STEP);
         confirm(SECOND_STEP);
         drainTasks();
@@ -301,7 +286,7 @@ public class MovementTest {
 
     private void setPreviousCommand() {
         MoveCmd command = new MoveCmd(new CharacterId(1), CharMovementMode.Walk, Direction.North);
-        Whitebox.setInternalState(movement, "lastSendMoveCommand", command);
+        TestObjects.setInternalState(movement, "lastSendMoveCommand", command);
     }
 
     private void confirm(ServerCoordinate target) {

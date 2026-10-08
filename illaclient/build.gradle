@@ -27,11 +27,18 @@ application {
     mainClass = 'illarion.client.IllaClient'
 }
 
+configurations {
+    mockitoAgent {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
 dependencies {
-    // Older CGLIB cannot read method-parameter metadata emitted by modern javac.
-    testImplementation 'org.easymock:easymock:4.3'
-    testImplementation 'org.powermock:powermock-module-testng:2.0.9'
-    testImplementation 'org.powermock:powermock-api-easymock:2.0.9'
+    testImplementation 'org.mockito:mockito-core:5.24.0'
+    testImplementation 'org.objenesis:objenesis:3.3'
+    mockitoAgent 'org.mockito:mockito-core:5.24.0'
 
     api project(':common')
     api project(':engine')
@@ -79,24 +86,15 @@ jar {
     }
 }
 
-// The upstream regression fixtures use PowerMock's Java 8 class loader.
-// Migrate these fixtures before raising the client test JVM to Java 25.
+// Install instrumentation explicitly; do not rely on dynamic agent attachment.
 tasks.named('test', Test) {
-    if (!providers.gradleProperty('testJavaVersion').isPresent()) {
-        javaLauncher = javaToolchains.launcherFor {
-            languageVersion = JavaLanguageVersion.of(8)
-        }
+    doFirst {
+        jvmArgs "-javaagent:${configurations.mockitoAgent.singleFile.absolutePath}"
     }
 }
 
 run {
     jvmArgs '-Dillarion.server=devserver'
-
-    doFirst {
-        if (javaLauncher.get().metadata.languageVersion.asInt() >= 17) {
-            jvmArgs '--enable-native-access=ALL-UNNAMED'
-        }
-    }
 }
 
 task sourceJar(type: Jar) {

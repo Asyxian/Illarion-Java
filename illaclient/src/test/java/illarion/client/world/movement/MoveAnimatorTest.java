@@ -18,6 +18,7 @@ package illarion.client.world.movement;
 import illarion.client.graphics.AnimationManager;
 import illarion.client.graphics.MapDisplayManager;
 import illarion.client.graphics.MoveAnimation;
+import illarion.client.test.ScopedMocks;
 import illarion.client.util.UpdateTaskManager;
 import illarion.client.world.Char;
 import illarion.client.world.CharMovementMode;
@@ -25,27 +26,21 @@ import illarion.client.world.GameMap;
 import illarion.client.world.Player;
 import illarion.client.world.World;
 import illarion.common.types.ServerCoordinate;
-import org.easymock.EasyMock;
 import org.illarion.engine.GameContainer;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.testng.IObjectFactory;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@PrepareForTest({World.class, Player.class, Char.class, GameMap.class, MapDisplayManager.class})
-@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*"})
-public class MoveAnimatorTest {
+public class MoveAnimatorTest extends ScopedMocks {
     private static final ServerCoordinate FIRST_STEP = new ServerCoordinate(359, 875, 0);
     private static final ServerCoordinate SECOND_STEP = new ServerCoordinate(358, 877, 1);
+
+    private MockedStatic<World> world;
     private MoveAnimator animator;
     private MoveAnimation animation;
     private AnimationManager animations;
@@ -54,44 +49,37 @@ public class MoveAnimatorTest {
     private ServerCoordinate location;
     private int readyCount;
 
-    @ObjectFactory
-    public IObjectFactory createObjectFactory() {
-        return new PowerMockObjectFactory();
-    }
-
     @BeforeMethod
     public void setUp() {
         location = new ServerCoordinate(359, 876, 0);
         readyCount = 0;
         updates = new UpdateTaskManager();
         animations = new AnimationManager();
-        container = EasyMock.createNiceMock(GameContainer.class);
-        Player player = PowerMock.createNiceMock(Player.class);
-        Char character = PowerMock.createNiceMock(Char.class);
-        GameMap map = PowerMock.createNiceMock(GameMap.class);
-        MapDisplayManager display = PowerMock.createNiceMock(MapDisplayManager.class);
-        Movement movement = EasyMock.createNiceMock(Movement.class);
-        EasyMock.expect(movement.getPlayer()).andReturn(player).anyTimes();
-        movement.reportReadyForNextStep();
-        EasyMock.expectLastCall().andAnswer(() -> {
+        container = Mockito.mock(GameContainer.class);
+        Player player = Mockito.mock(Player.class);
+        Char character = Mockito.mock(Char.class);
+        GameMap map = Mockito.mock(GameMap.class);
+        MapDisplayManager display = Mockito.mock(MapDisplayManager.class);
+        Movement movement = Mockito.mock(Movement.class);
+        Mockito.when(movement.getPlayer()).thenReturn(player);
+        Mockito.doAnswer(invocation -> {
             readyCount++;
             return null;
-        }).anyTimes();
-        EasyMock.expect(player.getCharacter()).andReturn(character).anyTimes();
-        EasyMock.expect(player.getLocation()).andAnswer(() -> location).anyTimes();
-        EasyMock.expect(character.getLocation()).andAnswer(() -> location).anyTimes();
-        player.updateLocation(EasyMock.anyObject(ServerCoordinate.class));
-        EasyMock.expectLastCall().andAnswer(() -> {
-            location = (ServerCoordinate) EasyMock.getCurrentArguments()[0];
+        }).when(movement).reportReadyForNextStep();
+        Mockito.when(player.getCharacter()).thenReturn(character);
+        Mockito.when(player.getLocation()).thenAnswer(invocation -> location);
+        Mockito.when(character.getLocation()).thenAnswer(invocation -> location);
+        Mockito.doAnswer(invocation -> {
+            location = (ServerCoordinate) invocation.getArguments()[0];
             return null;
-        }).anyTimes();
-        EasyMock.replay(container, movement, player, character, map, display);
-        PowerMock.mockStatic(World.class);
-        EasyMock.expect(World.getUpdateTaskManager()).andReturn(updates).anyTimes();
-        EasyMock.expect(World.getAnimationManager()).andReturn(animations).anyTimes();
-        EasyMock.expect(World.getMap()).andReturn(map).anyTimes();
-        EasyMock.expect(World.getMapDisplay()).andReturn(display).anyTimes();
-        PowerMock.replay(World.class);
+        }).when(player).updateLocation(Mockito.any(ServerCoordinate.class));
+
+        world = scoped(Mockito.mockStatic(World.class));
+        world.when(World::getUpdateTaskManager).thenReturn(updates);
+        world.when(World::getAnimationManager).thenReturn(animations);
+        world.when(World::getMap).thenReturn(map);
+        world.when(World::getMapDisplay).thenReturn(display);
+
         animation = new MoveAnimation(null);
         animator = new MoveAnimator(movement, animation);
         animation.addTarget(animator, false);

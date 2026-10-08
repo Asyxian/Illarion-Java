@@ -1,5 +1,3 @@
--target 11
-
 -dontoptimize
 -optimizationpasses 10
 -allowaccessmodification

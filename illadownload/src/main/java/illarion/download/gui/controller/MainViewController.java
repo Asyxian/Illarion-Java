@@ -484,7 +484,7 @@ public class MainViewController extends AbstractController implements MavenDownl
                 progress.setProgress(1.0);
                 progressDescription.setText(resourceBundle.getString("launchApplication"));
             });
-            JavaLauncher launcher = new JavaLauncher(getModel().getConfig(), useSnapshots);
+            JavaLauncher launcher = new JavaLauncher(useSnapshots);
             if (launcher.launch(classpath, launchClass)) {
                 Platform.runLater(() -> {
                     try {

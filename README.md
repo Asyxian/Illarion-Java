@@ -40,13 +40,9 @@ Build
 Install **JDK 25**, set `JAVA_HOME` to that installation and use the checked-in
 **Gradle 9.8.0 wrapper**. A JDK with bundled JavaFX is no longer required.
 
-During branch integration, the client regression tests additionally require
-**JDK 8**, because their upstream PowerMock fixtures cannot run on Java 25.
-Gradle selects Java 8 only for `:client:test`; compilation, the other tests and
-`:client:run` use Java 25. If needed, pass
-`-Porg.gradle.java.installations.paths=/path/to/jdk8` to locate that installation.
-Replacing these fixtures belongs to the separate Java 25 migration; no tests
-are skipped to accommodate this transition.
+All modules, tests and applications use **Java 25**. No additional JDK 8 or
+JavaFX-enabled JDK is needed. The client regression fixtures use Mockito with
+an explicit test JVM agent instead of PowerMock's legacy class loader.
 
 ```sh
 ./gradlew classes test
@@ -69,39 +65,34 @@ An offline build requires populated caches and the existing
 The skills download is skipped in offline mode. The wrapper itself still needs
 to download its distribution if Gradle has not been cached yet.
 
-### Compilation targets
+### Java baseline and runtime options
 
-The build JVM and compilation targets are separate:
+All handwritten and generated Java/Groovy modules target Java 25, including
+the resource converter plugin and the standalone NPC compiler. Consumers of
+the rebuilt plugin also need Java 25. Java 8 compatibility is retained only
+on the independent upstream PR branches, not on this fork's `develop`.
+The old `-PtestJavaVersion=8` override is rejected with an explanatory error.
 
-| Modules | Target | Reason |
-| --- | --- | --- |
-| Client, common, game engines, map editor, easyQuest, Nifty modules | Java 8 | Preserve the existing game compatibility target using `--release 8`. |
-| easyNPC and compiler | Java 11 | RSyntaxTextArea 4.0.1 and AutoComplete 4.0.0 require Java 11; the old editor dependency references JDK APIs unavailable to the modern ProGuard build. |
-| Resource converter Gradle plugin | Java 17 | Uses the current Gradle API and bundled Groovy. |
-| Downloader/launcher | Java 25 | Builds against separately resolved OpenJFX 25.0.4. |
+Gradle application runs, generated distribution scripts and the packaged
+launcher use these JVM options:
 
-These are transitional targets retained during branch integration. This fork
-will adopt Java 25 for all applications in a separate, validated migration.
-
-The integrated runtime follow-up aligns LWJGL with version 3.4.3, recognises
-modern child-JVM version strings and avoids obsolete launcher options.
-`:client:run` enables native access on Java 17+. When using generated client
-scripts or a direct IDE application configuration, supply
-`--enable-native-access=ALL-UNNAMED` through `JAVA_OPTS` or VM options on Java 17+.
-See [the runtime notes](docs/modernization-follow-up.md) for platform limitations.
-
-The opt-in `:engine-libgdx:nativeRuntimeTest` exercises a hidden OpenGL window.
-It requires desktop graphics and denies legacy Unsafe memory access on Java 25.
-
-To run the existing game/library tests on an additional installed JDK 8:
-
-```sh
-./gradlew :client:test :common:test :mapeditor:test -PtestJavaVersion=8
+```text
+--enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=deny
 ```
 
-If Gradle does not discover that installation, also pass
-`-Porg.gradle.java.installations.paths=/path/to/jdk8`. The override changes test
-JVMs, not the Gradle JVM. Do not apply it to modules targeting a newer Java version.
+The launcher's child JVMs receive the same options and must be Java 25 or newer.
+It no longer reads or forwards the obsolete `launchAggressive` setting.
+For a direct IDE application run, enter these options in the VM options field;
+delegated Gradle runs already include them. The libGDX backend aligns LWJGL
+3.4.3 across its Java bindings and native libraries.
+
+Generated Windows scripts use a `lib/*` classpath to stay below the Windows
+command-line limit. Keep the distribution's `lib` directory free of stale JARs.
+
+The opt-in `:engine-libgdx:nativeRuntimeTest` exercises a hidden OpenGL window
+with the same runtime options. It requires working desktop graphics.
+See [the Java 25 migration notes](docs/java25-migration.md) for regression coverage
+and [the runtime notes](docs/modernization-follow-up.md) for platform limitations.
 
 ### Build outputs and release limitations
 

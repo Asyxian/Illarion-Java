@@ -20,24 +20,19 @@ import de.lessvoid.nifty.controls.Window;
 import de.lessvoid.nifty.elements.Element;
 import de.lessvoid.nifty.screen.Screen;
 import illarion.client.graphics.QuestMarker;
-import illarion.client.graphics.QuestMarkerType;
 import illarion.client.gui.GameGui;
 import illarion.client.gui.MiniMapGui;
+import illarion.client.test.ScopedMocks;
+import illarion.client.test.TestObjects;
 import illarion.client.util.UpdateTaskManager;
 import illarion.client.world.GameMap;
 import illarion.client.world.MapTile;
 import illarion.client.world.World;
 import illarion.common.types.ServerCoordinate;
-import org.easymock.EasyMock;
 import org.illarion.engine.GameContainer;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.powermock.reflect.Whitebox;
-import org.testng.IObjectFactory;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Constructor;
@@ -54,13 +49,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static org.testng.Assert.assertEquals;
 
 /** Tests the real refresh and marker lifecycle without starting a graphics engine or a server. */
-@PrepareForTest({World.class, GameMap.class, MapTile.class})
-@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*", "org.easymock.cglib.*"})
-public class QuestMarkerRefreshTest {
+public class QuestMarkerRefreshTest extends ScopedMocks {
     private static final ServerCoordinate FIRST_TARGET = new ServerCoordinate(100, 100, 0);
     private static final ServerCoordinate SECOND_TARGET = new ServerCoordinate(500, 500, 0);
     private static final int FRAME_TIME = 16;
+
+    private MockedStatic<World> world;
 
     private GameMap map;
     private QuestHandler handler;
@@ -68,11 +62,6 @@ public class QuestMarkerRefreshTest {
     private GameContainer container;
     private RecordingMiniMap miniMap;
     private Map<ServerCoordinate, MapTile> tiles;
-
-    @ObjectFactory
-    public IObjectFactory createObjectFactory() {
-        return new PowerMockObjectFactory();
-    }
 
     @DataProvider
     public Object[][] markerSettings() {
@@ -145,36 +134,29 @@ public class QuestMarkerRefreshTest {
     private void initialise(List<ServerCoordinate> first, List<ServerCoordinate> second, int selection,
                             boolean showMiniMap, boolean showGameMap) throws Exception {
         // Only bypass construction that requires graphics assets; marker methods remain real.
-        map = Whitebox.newInstance(GameMap.class);
+        map = TestObjects.newInstance(GameMap.class);
         tiles = new HashMap<>();
-        Whitebox.setInternalState(map, "tiles", tiles);
-        Whitebox.setInternalState(map, "mapLock", new ReentrantReadWriteLock());
-        Whitebox.setInternalState(map, "activeQuestStartMarkers", new HashMap<>());
-        Whitebox.setInternalState(map, "activeQuestTargetMarkers", new HashMap<>());
-        Whitebox.setInternalState(map, "inactiveQuestTargetLocations", new HashMap<>());
-        Whitebox.setInternalState(map, "showQuestsOnMiniMap", showMiniMap);
-        Whitebox.setInternalState(map, "showQuestsOnGameMap", showGameMap);
+        TestObjects.setInternalState(map, "tiles", tiles);
+        TestObjects.setInternalState(map, "mapLock", new ReentrantReadWriteLock());
+        TestObjects.setInternalState(map, "activeQuestStartMarkers", new HashMap<>());
+        TestObjects.setInternalState(map, "activeQuestTargetMarkers", new HashMap<>());
+        TestObjects.setInternalState(map, "inactiveQuestTargetLocations", new HashMap<>());
+        TestObjects.setInternalState(map, "showQuestsOnMiniMap", showMiniMap);
+        TestObjects.setInternalState(map, "showQuestsOnGameMap", showGameMap);
         miniMap = new RecordingMiniMap();
         updates = new UpdateTaskManager();
-        container = EasyMock.createNiceMock(GameContainer.class);
+        container = Mockito.mock(GameContainer.class);
 
-        GameGui gui = EasyMock.createNiceMock(GameGui.class);
-        EasyMock.expect(gui.getMiniMapGui()).andReturn(miniMap).anyTimes();
-        EasyMock.replay(gui, container);
-        PowerMock.mockStatic(World.class);
-        EasyMock.expect(World.getMap()).andReturn(map).anyTimes();
-        EasyMock.expect(World.getGameGui()).andReturn(gui).anyTimes();
-        EasyMock.expect(World.getUpdateTaskManager()).andReturn(updates).anyTimes();
-        PowerMock.replay(World.class);
+        GameGui gui = Mockito.mock(GameGui.class);
+        Mockito.when(gui.getMiniMapGui()).thenReturn(miniMap);
+
+        world = scoped(Mockito.mockStatic(World.class));
+        world.when(World::getMap).thenReturn(map);
+        world.when(World::getGameGui).thenReturn(gui);
+        world.when(World::getUpdateTaskManager).thenReturn(updates);
 
         // Replace only the graphical marker, not its carrier or the map's pointer logic.
-        PowerMock.expectNew(QuestMarker.class, new Class<?>[]{QuestMarkerType.class, MapTile.class},
-                EasyMock.anyObject(QuestMarkerType.class), EasyMock.anyObject(MapTile.class)).andAnswer(() -> {
-                    QuestMarker marker = EasyMock.createNiceMock(QuestMarker.class);
-                    EasyMock.replay(marker);
-                    return marker;
-                }).anyTimes();
-        PowerMock.replay(QuestMarker.class);
+        scoped(Mockito.mockConstruction(QuestMarker.class));
 
         Class<?> entryClass = Class.forName(QuestHandler.class.getName() + "$QuestEntry");
         Constructor<?> constructor = entryClass.getDeclaredConstructor(int.class, String.class, String.class,
@@ -182,25 +164,25 @@ public class QuestMarkerRefreshTest {
         constructor.setAccessible(true);
         List<Object> entries = Arrays.asList(constructor.newInstance(1, "First", "", false, first),
                 constructor.newInstance(2, "Second", "", false, second));
-        ListBox list = EasyMock.createNiceMock(ListBox.class);
-        EasyMock.expect(list.getItems()).andReturn(entries).anyTimes();
-        EasyMock.expect(list.getSelection()).andReturn(selection < 0 ? Collections.emptyList()
-                : Collections.singletonList(entries.get(selection))).anyTimes();
-        Window window = EasyMock.createNiceMock(Window.class);
-        Element element = EasyMock.createNiceMock(Element.class);
-        Screen screen = EasyMock.createNiceMock(Screen.class);
-        EasyMock.expect(window.getElement()).andReturn(element).anyTimes();
-        EasyMock.expect(element.findNiftyControl("#questList", ListBox.class)).andReturn(list).anyTimes();
-        EasyMock.replay(window, element, screen, list);
+        ListBox list = Mockito.mock(ListBox.class);
+        Mockito.when(list.getItems()).thenReturn(entries);
+        Mockito.when(list.getSelection()).thenReturn(selection < 0 ? Collections.emptyList()
+                : Collections.singletonList(entries.get(selection)));
+        Window window = Mockito.mock(Window.class);
+        Element element = Mockito.mock(Element.class);
+        Screen screen = Mockito.mock(Screen.class);
+        Mockito.when(window.getElement()).thenReturn(element);
+        Mockito.when(element.findNiftyControl("#questList", ListBox.class)).thenReturn(list);
+
         handler = new QuestHandler();
-        Whitebox.setInternalState(handler, "screen", screen);
-        Whitebox.setInternalState(handler, "questWindow", window);
+        TestObjects.setInternalState(handler, "screen", screen);
+        TestObjects.setInternalState(handler, "questWindow", window);
     }
 
     private void loadTiles(Set<ServerCoordinate> locations) {
         for (ServerCoordinate location : locations) {
-            MapTile tile = PowerMock.createNiceMock(MapTile.class);
-            PowerMock.replay(tile);
+            MapTile tile = Mockito.mock(MapTile.class);
+
             tiles.put(location, tile);
         }
     }
@@ -214,7 +196,7 @@ public class QuestMarkerRefreshTest {
     private void assertMarkers(Set<ServerCoordinate> selected, Set<ServerCoordinate> loaded,
                                boolean showMiniMap, boolean showGameMap) {
         assertEquals(miniMap.currentTargets(), showMiniMap ? selected : Collections.emptySet());
-        Map<ServerCoordinate, ?> worldMarkers = Whitebox.getInternalState(map, "activeQuestTargetMarkers");
+        Map<ServerCoordinate, ?> worldMarkers = TestObjects.getInternalState(map, "activeQuestTargetMarkers");
         assertEquals(worldMarkers.keySet(), showGameMap ? loaded : Collections.emptySet());
 
         Set<ServerCoordinate> visible = new HashSet<>();

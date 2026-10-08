@@ -78,13 +78,12 @@ do not rename existing PR branches as part of a naming cleanup.
 The agreed baseline for this fork's integrated development is Java 25 LTS for
 building, compiling and running its applications. Java 8 compatibility is no
 longer a requirement for this fork, and modernisation may use Java 25 features.
-This is an agreed direction; existing module targets still need to be migrated
-and validated during integration.
-
-The integration currently keeps client regression tests on a separate JDK 8
-because of their PowerMock fixtures. Read [the integration notes](docs/fork-integration.md)
-before changing Java targets or test dependencies. The full Java 25 migration
-must replace this temporary arrangement without dropping regression coverage.
+All module compilation targets and tests now use Java 25. Client regression
+fixtures use Mockito with an explicit test agent and scoped mock cleanup;
+do not reintroduce PowerMock or the temporary Java 8 test setup.
+Read [the Java 25 migration notes](docs/java25-migration.md) before changing
+Java targets, test dependencies or JVM startup options. Keep the regression
+coverage and the consistent native-library options across launch paths.
 
 Keep existing independent upstream PRs separate from the fork's integration.
 Do not change their Java requirements merely to match this fork. For future

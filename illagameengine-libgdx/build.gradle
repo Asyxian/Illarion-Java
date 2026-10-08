@@ -46,13 +46,7 @@ tasks.register('nativeRuntimeTest', Test) {
         includeGroups 'nativeRuntime'
     }
 
-    doFirst {
-        if (javaLauncher.get().metadata.languageVersion.asInt() >= 25) {
-            jvmArgs '--enable-native-access=ALL-UNNAMED', '--sun-misc-unsafe-memory-access=deny'
-        } else if (javaLauncher.get().metadata.languageVersion.asInt() >= 17) {
-            jvmArgs '--enable-native-access=ALL-UNNAMED'
-        }
-    }
+    jvmArgs rootProject.ext.applicationJvmArgs
 }
 
 jar {

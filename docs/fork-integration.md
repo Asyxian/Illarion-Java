@@ -1,5 +1,9 @@
 # Fork integration
 
+This records the integration baseline at `40ffa4dd`. Its temporary Java 8 test
+setup has since been replaced by the [Java 25 migration](java25-migration.md).
+Use the README and migration notes for current build instructions.
+
 Integration started on 8 October 2026, from upstream commit `d71f2c3a`.
 The integration branch is `develop`. The fork's `master` remains at `f235f368`;
 release promotion is a separate decision. Existing upstream PR branches retain

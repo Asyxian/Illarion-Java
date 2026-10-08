@@ -1,5 +1,10 @@
 # Runtime findings after build modernisation
 
+The sections below record the initial runtime follow-up and integration checks.
+The later [Java 25 migration](java25-migration.md) makes Java 25 mandatory and
+applies native access plus `--sun-misc-unsafe-memory-access=deny` to all supplied
+launch paths. Its test fixtures no longer need Java 8.
+
 Baseline: `cbe2b665` (Gradle 9.8.0 / JDK 25). Scope: fix regressions and
 compatibility issues exposed by changing the build/runtime. Existing application
 bugs are recorded here, without modifying their behaviour.

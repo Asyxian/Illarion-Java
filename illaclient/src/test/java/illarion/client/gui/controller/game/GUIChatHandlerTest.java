@@ -36,17 +36,14 @@ import de.lessvoid.nifty.tools.SizeValue;
 import illarion.client.Game;
 import illarion.client.IllaClient;
 import illarion.client.gui.GameGui;
+import illarion.client.test.ScopedMocks;
+import illarion.client.test.TestObjects;
 import illarion.client.world.World;
 import illarion.common.config.Config;
 import org.illarion.engine.GameContainer;
-import org.easymock.EasyMock;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.testng.IObjectFactory;
-import org.testng.annotations.ObjectFactory;
-import org.powermock.reflect.Whitebox;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -55,18 +52,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@PrepareForTest({World.class, IllaClient.class})
-@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*", "de.lessvoid.nifty.*"})
-public class GUIChatHandlerTest {
+public class GUIChatHandlerTest extends ScopedMocks {
+    private MockedStatic<World> world;
+    private MockedStatic<IllaClient> client;
     private Game game;
     private GameContainer container;
     private boolean worldInitialised;
-
-    @ObjectFactory
-    public IObjectFactory createObjectFactory() {
-        return new PowerMockObjectFactory();
-    }
 
     private int width;
     private int height;
@@ -79,25 +70,25 @@ public class GUIChatHandlerTest {
     public void setUp() throws Exception {
         width = 1000;
         height = 700;
-        RenderFont font = EasyMock.createNiceMock(RenderFont.class);
-        EasyMock.expect(font.getHeight()).andReturn(16).anyTimes();
-        EasyMock.expect(font.getWidth(EasyMock.anyString())).andAnswer(this::textWidth).anyTimes();
-        EasyMock.expect(font.getWidth(EasyMock.anyString(), EasyMock.anyFloat()))
-                .andAnswer(this::textWidth).anyTimes();
-        EasyMock.expect(font.getCharacterAdvance(EasyMock.anyChar(), EasyMock.anyChar(), EasyMock.anyFloat()))
-                .andReturn(8).anyTimes();
-        RenderImage image = EasyMock.createNiceMock(RenderImage.class);
-        EasyMock.expect(image.getWidth()).andReturn(64).anyTimes();
-        EasyMock.expect(image.getHeight()).andReturn(64).anyTimes();
-        RenderDevice render = EasyMock.createNiceMock(RenderDevice.class);
-        EasyMock.expect(render.getWidth()).andAnswer(() -> width).anyTimes();
-        EasyMock.expect(render.getHeight()).andAnswer(() -> height).anyTimes();
-        EasyMock.expect(render.createFont(EasyMock.anyString())).andReturn(font).anyTimes();
-        EasyMock.expect(render.createImage(EasyMock.anyString(), EasyMock.anyBoolean())).andReturn(image).anyTimes();
-        SoundDevice sound = EasyMock.createNiceMock(SoundDevice.class);
-        InputSystem input = EasyMock.createNiceMock(InputSystem.class);
-        ScreenController controller = EasyMock.createNiceMock(ScreenController.class);
-        EasyMock.replay(render, font, image, sound, input, controller);
+        RenderFont font = Mockito.mock(RenderFont.class);
+        Mockito.when(font.getHeight()).thenReturn(16);
+        Mockito.when(font.getWidth(Mockito.anyString())).thenAnswer(this::textWidth);
+        Mockito.when(font.getWidth(Mockito.anyString(), Mockito.anyFloat()))
+                .thenAnswer(this::textWidth);
+        Mockito.when(font.getCharacterAdvance(Mockito.anyChar(), Mockito.anyChar(), Mockito.anyFloat()))
+                .thenReturn(8);
+        RenderImage image = Mockito.mock(RenderImage.class);
+        Mockito.when(image.getWidth()).thenReturn(64);
+        Mockito.when(image.getHeight()).thenReturn(64);
+        RenderDevice render = Mockito.mock(RenderDevice.class);
+        Mockito.when(render.getWidth()).thenAnswer(invocation -> width);
+        Mockito.when(render.getHeight()).thenAnswer(invocation -> height);
+        Mockito.when(render.createFont(Mockito.anyString())).thenReturn(font);
+        Mockito.when(render.createImage(Mockito.anyString(), Mockito.anyBoolean())).thenReturn(image);
+        SoundDevice sound = Mockito.mock(SoundDevice.class);
+        InputSystem input = Mockito.mock(InputSystem.class);
+        ScreenController controller = Mockito.mock(ScreenController.class);
+
         nifty = new Nifty(render, sound, input, () -> 1000L);
         nifty.loadStyleFile("nifty-illarion-style.xml");
         nifty.loadControlFile("nifty-default-controls.xml");
@@ -130,26 +121,25 @@ public class GUIChatHandlerTest {
         scroll = screen.findNiftyControl("chatPanel", ScrollPanel.class);
         content = screen.findElementById("chatLog");
         // Exercise real chat/layout code without constructing the unrelated translation service.
-        handler = Whitebox.newInstance(GUIChatHandler.class);
-        Whitebox.setInternalState(handler, "nifty", nifty);
-        Whitebox.setInternalState(handler, "screen", screen);
-        Whitebox.setInternalState(handler, "chatLog", scroll);
-        Whitebox.setInternalState(handler, "chatLineCounter", new AtomicLong());
-        game = Whitebox.newInstance(Game.class);
-        Whitebox.setInternalState(game, "nifty", nifty);
-        Whitebox.setInternalState(game, "activeListener", -1);
-        container = EasyMock.createNiceMock(GameContainer.class);
-        GameGui gui = EasyMock.createNiceMock(GameGui.class);
-        EasyMock.expect(gui.getChatGui()).andReturn(handler).anyTimes();
-        Config config = EasyMock.createNiceMock(Config.class);
-        EasyMock.replay(container, gui, config);
+        handler = TestObjects.newInstance(GUIChatHandler.class);
+        TestObjects.setInternalState(handler, "nifty", nifty);
+        TestObjects.setInternalState(handler, "screen", screen);
+        TestObjects.setInternalState(handler, "chatLog", scroll);
+        TestObjects.setInternalState(handler, "chatLineCounter", new AtomicLong());
+        game = TestObjects.newInstance(Game.class);
+        TestObjects.setInternalState(game, "nifty", nifty);
+        TestObjects.setInternalState(game, "activeListener", -1);
+        container = Mockito.mock(GameContainer.class);
+        GameGui gui = Mockito.mock(GameGui.class);
+        Mockito.when(gui.getChatGui()).thenReturn(handler);
+        Config config = Mockito.mock(Config.class);
+
         worldInitialised = true;
-        PowerMock.mockStatic(World.class);
-        EasyMock.expect(World.isInitDone()).andAnswer(() -> worldInitialised).anyTimes();
-        EasyMock.expect(World.getGameGui()).andReturn(gui).anyTimes();
-        PowerMock.mockStatic(IllaClient.class);
-        EasyMock.expect(IllaClient.getCfg()).andReturn(config).anyTimes();
-        PowerMock.replay(World.class, IllaClient.class);
+        world = scoped(Mockito.mockStatic(World.class));
+        world.when(World::isInitDone).thenAnswer(invocation -> worldInitialised);
+        world.when(World::getGameGui).thenReturn(gui);
+        client = scoped(Mockito.mockStatic(IllaClient.class));
+        client.when(IllaClient::getCfg).thenReturn(config);
 
         appendMessages(60);
         finishLayout();
@@ -157,8 +147,8 @@ public class GUIChatHandlerTest {
         scroll.setVerticalPos(200);
     }
 
-    private int textWidth() {
-        return ((String) EasyMock.getCurrentArguments()[0]).length() * 8;
+    private int textWidth(InvocationOnMock invocation) {
+        return ((String) invocation.getArguments()[0]).length() * 8;
     }
 
     @Test
@@ -236,12 +226,12 @@ public class GUIChatHandlerTest {
         Element anchor = content.getChildren().get(60);
         scroll.setVerticalPos(anchor.getY() - content.getY() + 5);
         float previous = relativePosition(anchor);
-        Whitebox.invokeMethod(handler, "rememberChatPosition");
+        TestObjects.invokeMethod(handler, "rememberChatPosition");
         Element translation = content.getChildren().get(1);
         translation.setMarginTop(SizeValue.def());
         translation.setVisible(true);
         translation.getNiftyControl(Label.class).setText("A translation inserted above the current reading position.");
-        Whitebox.setInternalState(handler, "dirty", true);
+        TestObjects.setInternalState(handler, "dirty", true);
         finishLayout();
         assertEquals(relativePosition(anchor), previous);
     }
@@ -289,16 +279,16 @@ public class GUIChatHandlerTest {
 
     @Test
     public void expandingAndCollapsingTheChatKeepsReadingPosition() throws Exception {
-        Whitebox.invokeMethod(handler, "setHeightOfChatLog", SizeValue.px(500));
+        TestObjects.invokeMethod(handler, "setHeightOfChatLog", new Class<?>[]{SizeValue.class}, SizeValue.px(500));
         assertEquals(scroll.getVerticalPos(), 200f);
-        Whitebox.invokeMethod(handler, "setHeightOfChatLog", SizeValue.px(170));
+        TestObjects.invokeMethod(handler, "setHeightOfChatLog", new Class<?>[]{SizeValue.class}, SizeValue.px(170));
         assertEquals(scroll.getVerticalPos(), 200f);
     }
 
     @Test
     public void expandingTheChatAtBottomKeepsFollowing() throws Exception {
         scrollToBottom();
-        Whitebox.invokeMethod(handler, "setHeightOfChatLog", SizeValue.px(500));
+        TestObjects.invokeMethod(handler, "setHeightOfChatLog", new Class<?>[]{SizeValue.class}, SizeValue.px(500));
         assertAtBottom();
     }
 
@@ -306,7 +296,7 @@ public class GUIChatHandlerTest {
     public void resizeWithNewMessagesKeepsReadingPosition() throws Exception {
         game.resize(container, 1200, 800);
         appendMessages(3);
-        Whitebox.invokeMethod(handler, "cleanupChatLog");
+        TestObjects.invokeMethod(handler, "cleanupChatLog");
         width = 1200;
         height = 800;
         game.render(container);
@@ -316,11 +306,11 @@ public class GUIChatHandlerTest {
     @Test
     public void resizingBeforeWorldInitialisationDoesNotAccessChat() {
         worldInitialised = false;
-        PowerMock.reset(World.class);
-        EasyMock.expect(World.isInitDone()).andReturn(false).anyTimes();
-        PowerMock.replay(World.class);
+        world.reset();
+        world.when(World::isInitDone).thenReturn(false);
+
         resize(1200, 800);
-        PowerMock.verify(World.class);
+        world.verify(World::getGameGui, Mockito.never());
     }
 
     private void resize(int newWidth, int newHeight) {
@@ -341,11 +331,12 @@ public class GUIChatHandlerTest {
     }
 
     private void append(String text) throws Exception {
-        Whitebox.invokeMethod(handler, "addChatLogText", text, Color.WHITE);
+        TestObjects.invokeMethod(handler, "addChatLogText", new Class<?>[]{String.class, Color.class},
+                text, Color.WHITE);
     }
 
     private void finishLayout() throws Exception {
-        Whitebox.invokeMethod(handler, "cleanupChatLog");
+        TestObjects.invokeMethod(handler, "cleanupChatLog");
         nifty.update();
         nifty.render(false);
     }

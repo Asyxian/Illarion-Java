@@ -35,24 +35,21 @@ import illarion.client.gui.DialogType;
 import illarion.client.gui.GameGui;
 import illarion.client.net.NetComm;
 import illarion.client.net.client.CloseDialogCraftingCmd;
+import illarion.client.test.ScopedMocks;
+import illarion.client.test.TestObjects;
 import illarion.client.util.UpdateTaskManager;
 import illarion.client.world.World;
 import illarion.client.world.items.CraftingItem;
-import org.easymock.EasyMock;
 import org.illarion.engine.GameContainer;
 import org.illarion.engine.graphic.Font;
 import org.illarion.nifty.controls.CraftingItemEntry;
 import org.illarion.nifty.controls.DialogCrafting;
 import org.illarion.nifty.controls.DialogCraftingCloseEvent;
 import org.illarion.nifty.controls.DialogMerchant;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.powermock.reflect.Whitebox;
-import org.testng.IObjectFactory;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -62,10 +59,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@PrepareForTest({World.class, NetComm.class, FontLoader.class})
-@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*", "de.lessvoid.nifty.*"})
-public class DialogHandlerTest {
+public class DialogHandlerTest extends ScopedMocks {
+    private MockedStatic<World> world;
+    private MockedStatic<FontLoader> fontLoader;
     private DialogHandler handler;
     private UpdateTaskManager updates;
     private GameContainer container;
@@ -81,32 +77,33 @@ public class DialogHandlerTest {
     private float progress;
     private long time;
 
-    @ObjectFactory
-    public IObjectFactory createObjectFactory() {
-        return new PowerMockObjectFactory();
+    @AfterMethod(alwaysRun = true)
+    public void noUnexpectedNetworkCommands() {
+        if (network != null) {
+            Mockito.verifyNoMoreInteractions(network);
+        }
     }
 
     private void setUp(boolean hideEffect) {
         createScreen(hideEffect);
         prepareCraftingControl();
         handler = new DialogHandler(null, null, null);
-        Whitebox.setInternalState(handler, "nifty", nifty);
-        Whitebox.setInternalState(handler, "screen", screen);
-        Whitebox.setInternalState(handler, "craftingDialog", crafting);
+        TestObjects.setInternalState(handler, "nifty", nifty);
+        TestObjects.setInternalState(handler, "screen", screen);
+        TestObjects.setInternalState(handler, "craftingDialog", crafting);
         prepareMerchantControl();
         registerPlaceholderDialogs();
         prepareWorld();
     }
 
     private void createScreen(boolean hideEffect) {
-        RenderDevice render = EasyMock.createNiceMock(RenderDevice.class);
-        EasyMock.expect(render.getWidth()).andReturn(800).anyTimes();
-        EasyMock.expect(render.getHeight()).andReturn(600).anyTimes();
-        SoundDevice sound = EasyMock.createNiceMock(SoundDevice.class);
-        InputSystem input = EasyMock.createNiceMock(InputSystem.class);
-        container = EasyMock.createNiceMock(GameContainer.class);
-        ScreenController controller = EasyMock.createNiceMock(ScreenController.class);
-        EasyMock.replay(render, sound, input, container, controller);
+        RenderDevice render = Mockito.mock(RenderDevice.class);
+        Mockito.when(render.getWidth()).thenReturn(800);
+        Mockito.when(render.getHeight()).thenReturn(600);
+        SoundDevice sound = Mockito.mock(SoundDevice.class);
+        InputSystem input = Mockito.mock(InputSystem.class);
+        container = Mockito.mock(GameContainer.class);
+        ScreenController controller = Mockito.mock(ScreenController.class);
 
         time = 1000;
         nifty = new Nifty(render, sound, input, () -> time);
@@ -143,62 +140,56 @@ public class DialogHandlerTest {
 
     private void prepareCraftingControl() {
         Window window = createWindow(element);
-        crafting = EasyMock.createNiceMock(DialogCrafting.class);
+        crafting = Mockito.mock(DialogCrafting.class);
         dialogId = 0;
         selectedIndex = 0;
         amount = 0;
         progress = 0;
-        EasyMock.expect(crafting.getDialogId()).andAnswer(() -> dialogId).anyTimes();
-        crafting.setDialogId(EasyMock.anyInt());
-        EasyMock.expectLastCall().andAnswer(() -> {
-            dialogId = (Integer) EasyMock.getCurrentArguments()[0];
+        Mockito.when(crafting.getDialogId()).thenAnswer(invocation -> dialogId);
+        Mockito.doAnswer(invocation -> {
+            dialogId = (Integer) invocation.getArguments()[0];
             return null;
-        }).anyTimes();
-        EasyMock.expect(crafting.getElement()).andReturn(element).anyTimes();
-        crafting.closeWindow();
-        EasyMock.expectLastCall().andAnswer(() -> {
+        }).when(crafting).setDialogId(Mockito.anyInt());
+        Mockito.when(crafting.getElement()).thenReturn(element);
+        Mockito.doAnswer(invocation -> {
             window.closeWindow();
             return null;
-        }).anyTimes();
-        crafting.selectItemByItemIndex(EasyMock.anyInt());
-        EasyMock.expectLastCall().andAnswer(() -> {
-            selectedIndex = (Integer) EasyMock.getCurrentArguments()[0];
+        }).when(crafting).closeWindow();
+        Mockito.doAnswer(invocation -> {
+            selectedIndex = (Integer) invocation.getArguments()[0];
             return null;
-        }).anyTimes();
-        crafting.setAmount(EasyMock.anyInt());
-        EasyMock.expectLastCall().andAnswer(() -> {
-            amount = (Integer) EasyMock.getCurrentArguments()[0];
+        }).when(crafting).selectItemByItemIndex(Mockito.anyInt());
+        Mockito.doAnswer(invocation -> {
+            amount = (Integer) invocation.getArguments()[0];
             return null;
-        }).anyTimes();
-        crafting.setProgress(EasyMock.anyFloat());
-        EasyMock.expectLastCall().andAnswer(() -> {
-            progress = (Float) EasyMock.getCurrentArguments()[0];
+        }).when(crafting).setAmount(Mockito.anyInt());
+        Mockito.doAnswer(invocation -> {
+            progress = (Float) invocation.getArguments()[0];
             return null;
-        }).anyTimes();
+        }).when(crafting).setProgress(Mockito.anyFloat());
     }
 
     private void prepareMerchantControl() {
         merchantElement = screen.findElementById("merchantDialog");
         Window merchantWindow = createWindow(merchantElement);
-        DialogMerchant merchant = EasyMock.createNiceMock(DialogMerchant.class);
-        EasyMock.expect(merchant.getElement()).andReturn(merchantElement).anyTimes();
-        EasyMock.expect(merchant.getDialogId()).andReturn(0).anyTimes();
-        merchant.closeWindow();
-        EasyMock.expectLastCall().andAnswer(() -> {
+        DialogMerchant merchant = Mockito.mock(DialogMerchant.class);
+        Mockito.when(merchant.getElement()).thenReturn(merchantElement);
+        Mockito.when(merchant.getDialogId()).thenReturn(0);
+        Mockito.doAnswer(invocation -> {
             merchantWindow.closeWindow();
             return null;
-        }).anyTimes();
-        EasyMock.replay(merchant);
-        Whitebox.setInternalState(handler, "merchantDialog", merchant);
+        }).when(merchant).closeWindow();
+
+        TestObjects.setInternalState(handler, "merchantDialog", merchant);
     }
 
     // WindowControl is the existing production superclass; exercise its real close behaviour.
     @SuppressWarnings("deprecation")
     private Window createWindow(Element target) {
         Window window = new de.lessvoid.nifty.controls.window.WindowControl();
-        Whitebox.setInternalState(window, "element", target);
-        Whitebox.setInternalState(window, "nifty", nifty);
-        Whitebox.setInternalState(window, "hideOnClose", true);
+        TestObjects.setInternalState(window, "element", target);
+        TestObjects.setInternalState(window, "nifty", nifty);
+        TestObjects.setInternalState(window, "hideOnClose", true);
         return window;
     }
 
@@ -216,28 +207,25 @@ public class DialogHandlerTest {
     }
 
     private void prepareWorld() {
-        Font font = EasyMock.createNiceMock(Font.class);
-        EasyMock.replay(font);
-        FontLoader fonts = PowerMock.createMock(FontLoader.class);
-        EasyMock.expect(fonts.getFont(FontLoader.TEXT_FONT)).andReturn(font).anyTimes();
-        PowerMock.mockStatic(FontLoader.class);
-        EasyMock.expect(FontLoader.getInstance()).andReturn(fonts).anyTimes();
-        PowerMock.replay(fonts, FontLoader.class);
+        Font font = Mockito.mock(Font.class);
+
+        FontLoader fonts = Mockito.mock(FontLoader.class);
+        Mockito.when(fonts.getFont(FontLoader.TEXT_FONT)).thenReturn(font);
+        fontLoader = scoped(Mockito.mockStatic(FontLoader.class));
+        fontLoader.when(FontLoader::getInstance).thenReturn(fonts);
+
         updates = new UpdateTaskManager();
-        network = PowerMock.createMock(NetComm.class);
-        GameGui gui = EasyMock.createMock(GameGui.class);
-        EasyMock.expect(gui.getDialogGui()).andReturn(handler).anyTimes();
-        EasyMock.replay(gui);
-        PowerMock.mockStatic(World.class);
-        EasyMock.expect(World.getUpdateTaskManager()).andReturn(updates).anyTimes();
-        EasyMock.expect(World.getNet()).andReturn(network).anyTimes();
-        EasyMock.expect(World.getGameGui()).andReturn(gui).anyTimes();
-        PowerMock.replay(World.class);
+        network = Mockito.mock(NetComm.class);
+        GameGui gui = Mockito.mock(GameGui.class);
+        Mockito.when(gui.getDialogGui()).thenReturn(handler);
+
+        world = scoped(Mockito.mockStatic(World.class));
+        world.when(World::getUpdateTaskManager).thenReturn(updates);
+        world.when(World::getNet).thenReturn(network);
+        world.when(World::getGameGui).thenReturn(gui);
     }
 
     private void start() {
-        EasyMock.replay(crafting);
-        PowerMock.replay(network);
         open(0);
         frame();
         assertTrue(element.isVisible());
@@ -263,7 +251,7 @@ public class DialogHandlerTest {
         setUp(false);
         start();
         assertEquals(amount, 1);
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test
@@ -276,7 +264,7 @@ public class DialogHandlerTest {
         open(0);
         frame();
         assertTrue(element.isVisible());
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test
@@ -301,7 +289,7 @@ public class DialogHandlerTest {
         close(0);
         frame();
         assertFalse(handler.isCraftingInProgress());
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test
@@ -349,10 +337,10 @@ public class DialogHandlerTest {
     @Test
     public void testOpenDialogUpdatePreservesSelectionAndProduction() {
         setUp(false);
-        CraftingItemEntry selection = EasyMock.createMock(CraftingItemEntry.class);
-        EasyMock.expect(selection.getItemIndex()).andReturn(7).anyTimes();
-        EasyMock.replay(selection);
-        EasyMock.expect(crafting.getSelectedCraftingItem()).andReturn(selection).anyTimes();
+        CraftingItemEntry selection = Mockito.mock(CraftingItemEntry.class);
+        Mockito.when(selection.getItemIndex()).thenReturn(7);
+
+        Mockito.when(crafting.getSelectedCraftingItem()).thenReturn(selection);
         start();
         handler.startProductionIndicator(0, 3, 20);
         frame();
@@ -369,17 +357,16 @@ public class DialogHandlerTest {
     @Test
     public void testManualCloseSendsOneReplyAndAllowsReopening() {
         setUp(false);
-        network.sendCommand(EasyMock.isA(CloseDialogCraftingCmd.class));
-        EasyMock.expectLastCall().once();
         start();
         handler.handleCraftingCloseDialogEvent("craftingDialog", new DialogCraftingCloseEvent(0));
         handler.handleCraftingCloseDialogEvent("craftingDialog", new DialogCraftingCloseEvent(0));
+        Mockito.verify(network).sendCommand(Mockito.isA(CloseDialogCraftingCmd.class));
         frame();
         assertFalse(element.isVisible());
         open(0);
         frame();
         assertTrue(element.isVisible());
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test
@@ -391,7 +378,7 @@ public class DialogHandlerTest {
         open(0);
         frame();
         assertTrue(element.isVisible());
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test
@@ -466,34 +453,31 @@ public class DialogHandlerTest {
     public void testEarlierCloseDoesNotOvertakeOpen(String typeName) {
         DialogType type = DialogType.valueOf(typeName);
         setUp(false);
-        EasyMock.replay(crafting);
-        PowerMock.replay(network);
+
         handler.closeDialog(0, EnumSet.of(type));
         openDialog(type);
         frame();
         assertTrue(isDialogVisible(type));
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test(dataProvider = "dialogTypes")
     public void testOpenThenCloseInOneFrameEndsClosed(String typeName) {
         DialogType type = DialogType.valueOf(typeName);
         setUp(false);
-        EasyMock.replay(crafting);
-        PowerMock.replay(network);
+
         openDialog(type);
         handler.closeDialog(0, EnumSet.of(type));
         frame();
         assertFalse(isDialogVisible(type));
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test(dataProvider = "dialogTypes")
     public void testCloseThenReopenInOneFrameEndsOpen(String typeName) {
         DialogType type = DialogType.valueOf(typeName);
         setUp(false);
-        EasyMock.replay(crafting);
-        PowerMock.replay(network);
+
         openDialog(type);
         frame();
         assertTrue(isDialogVisible(type));
@@ -502,7 +486,7 @@ public class DialogHandlerTest {
         frame();
         nifty.update();
         assertTrue(isDialogVisible(type));
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test
@@ -539,8 +523,7 @@ public class DialogHandlerTest {
     @Test
     public void testQueuedOpenStartAndAbortRunInOrder() {
         setUp(false);
-        EasyMock.replay(crafting);
-        PowerMock.replay(network);
+
         open(0);
         handler.startProductionIndicator(0, 8, 20);
         handler.abortProduction(0);
@@ -560,7 +543,7 @@ public class DialogHandlerTest {
         frame();
         assertFalse(element.isVisible());
         assertEquals(amount, 1);
-        PowerMock.verify(network);
+        Mockito.verifyNoMoreInteractions(network);
     }
 
     @Test

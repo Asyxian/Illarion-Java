@@ -31,19 +31,15 @@ import illarion.client.gui.controller.game.InformHandler;
 import illarion.client.gui.controller.game.UpdatableHandler;
 import illarion.client.net.server.InformMsg;
 import illarion.client.net.server.ServerReplyResult;
+import illarion.client.test.ScopedMocks;
+import illarion.client.test.TestObjects;
 import illarion.client.util.UpdateTaskManager;
 import illarion.client.world.World;
 import illarion.common.config.Config;
-import org.easymock.EasyMock;
 import org.illarion.engine.GameContainer;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.powermock.reflect.Whitebox;
-import org.testng.IObjectFactory;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -54,10 +50,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-@PrepareForTest({World.class, IllaClient.class})
-@PowerMockIgnore({"javax.management.*", "javax.xml.parsers.*", "com.sun.org.apache.xerces.internal.jaxp.*",
-        "ch.qos.logback.*", "org.slf4j.*", "de.lessvoid.nifty.*"})
-public class GameScreenControllerTest {
+public class GameScreenControllerTest extends ScopedMocks {
+    private MockedStatic<World> world;
+    private MockedStatic<IllaClient> client;
     private GameScreenController controller;
     private Collection<ScreenController> children;
     private Collection<UpdatableHandler> updaters;
@@ -68,38 +63,30 @@ public class GameScreenControllerTest {
     private Screen game;
     private long time;
 
-    @ObjectFactory
-    public IObjectFactory createObjectFactory() {
-        return new PowerMockObjectFactory();
-    }
-
     @BeforeMethod
     public void setUp() {
         // Keep the real lifecycle methods, without constructing unrelated world-dependent handlers.
-        controller = Whitebox.newInstance(GameScreenController.class);
+        controller = TestObjects.newInstance(GameScreenController.class);
         children = new ArrayList<>();
         updaters = new ArrayList<>();
-        Whitebox.setInternalState(controller, "childControllers", children);
-        Whitebox.setInternalState(controller, "childUpdateControllers", updaters);
+        TestObjects.setInternalState(controller, "childControllers", children);
+        TestObjects.setInternalState(controller, "childUpdateControllers", updaters);
         informs = new InformHandler();
         children.add(informs);
-        Whitebox.setInternalState(controller, "informHandler", informs);
+        TestObjects.setInternalState(controller, "informHandler", informs);
         updates = new UpdateTaskManager();
-        container = EasyMock.createNiceMock(GameContainer.class);
-        Config config = EasyMock.createNiceMock(Config.class);
-        EasyMock.replay(container, config);
+        container = Mockito.mock(GameContainer.class);
+        Config config = Mockito.mock(Config.class);
 
-        PowerMock.mockStatic(World.class);
-        EasyMock.expect(World.getGameGui()).andReturn(controller).anyTimes();
-        EasyMock.expect(World.getUpdateTaskManager()).andAnswer(() -> updates).anyTimes();
-        World.cleanEnvironment();
-        EasyMock.expectLastCall().andAnswer(() -> {
+        world = scoped(Mockito.mockStatic(World.class));
+        world.when(World::getGameGui).thenReturn(controller);
+        world.when(World::getUpdateTaskManager).thenAnswer(invocation -> updates);
+        world.when(World::cleanEnvironment).thenAnswer(invocation -> {
             updates = new UpdateTaskManager();
             return null;
-        }).anyTimes();
-        PowerMock.mockStatic(IllaClient.class);
-        EasyMock.expect(IllaClient.getCfg()).andReturn(config).anyTimes();
-        PowerMock.replay(World.class, IllaClient.class);
+        });
+        client = scoped(Mockito.mockStatic(IllaClient.class));
+        client.when(IllaClient::getCfg).thenReturn(config);
     }
 
     @Test
@@ -111,50 +98,49 @@ public class GameScreenControllerTest {
 
     @Test
     public void childrenStartBeforeTheScreenBecomesReady() {
-        ScreenController child = EasyMock.createMock(ScreenController.class);
-        child.onStartScreen();
-        EasyMock.expectLastCall().andAnswer(() -> {
+        ScreenController child = Mockito.mock(ScreenController.class);
+        Mockito.doAnswer(invocation -> {
             assertFalse(controller.isReady());
             return null;
-        });
-        EasyMock.replay(child);
+        }).when(child).onStartScreen();
+
         children.add(child);
         controller.onStartScreen();
         assertTrue(controller.isReady());
-        EasyMock.verify(child);
+        Mockito.verify(child).onStartScreen();
+        Mockito.verifyNoMoreInteractions(child);
     }
 
     @Test
     public void leavingRevokesReadinessBeforeChildrenStop() {
-        ScreenController child = EasyMock.createMock(ScreenController.class);
-        child.onEndScreen();
-        EasyMock.expectLastCall().andAnswer(() -> {
+        ScreenController child = Mockito.mock(ScreenController.class);
+        Mockito.doAnswer(invocation -> {
             assertFalse(controller.isReady());
             return null;
-        });
-        EasyMock.replay(child);
+        }).when(child).onEndScreen();
+
         createScreens();
         controller.bind(nifty, game);
         controller.onStartScreen();
         children.add(child);
         controller.onEndScreen();
         assertFalse(controller.isReady());
-        EasyMock.verify(child);
+        Mockito.verify(child).onEndScreen();
+        Mockito.verifyNoMoreInteractions(child);
     }
 
     @Test
     public void childUpdatesOnlyRunWhileTheScreenIsReady() {
-        UpdatableHandler updater = EasyMock.createMock(UpdatableHandler.class);
-        updater.update(container, 20);
-        EasyMock.expectLastCall().once();
-        EasyMock.replay(updater);
+        UpdatableHandler updater = Mockito.mock(UpdatableHandler.class);
+
         updaters.add(updater);
         controller.onUpdateGame(container, 20);
         controller.onStartScreen();
         controller.onUpdateGame(container, 20);
         controller.onEndScreen();
         controller.onUpdateGame(container, 20);
-        EasyMock.verify(updater);
+        Mockito.verify(updater).update(container, 20);
+        Mockito.verifyNoMoreInteractions(updater);
     }
 
     @Test
@@ -166,8 +152,8 @@ public class GameScreenControllerTest {
         nifty.gotoScreen("gamescreen");
         frames(20);
         InformMsg reply = new InformMsg();
-        Whitebox.setInternalState(reply, "informText", "Welcome");
-        Whitebox.setInternalState(reply, "informType", 100);
+        TestObjects.setInternalState(reply, "informText", "Welcome");
+        TestObjects.setInternalState(reply, "informType", 100);
         assertEquals(reply.execute(), ServerReplyResult.Reschedule);
         frames(300);
         assertTrue(controller.isReady());
@@ -207,13 +193,13 @@ public class GameScreenControllerTest {
 
     private void createScreens() {
         time = 1000;
-        RenderDevice render = EasyMock.createNiceMock(RenderDevice.class);
-        EasyMock.expect(render.getWidth()).andReturn(800).anyTimes();
-        EasyMock.expect(render.getHeight()).andReturn(600).anyTimes();
-        SoundDevice sound = EasyMock.createNiceMock(SoundDevice.class);
-        InputSystem input = EasyMock.createNiceMock(InputSystem.class);
-        ScreenController loginController = EasyMock.createNiceMock(ScreenController.class);
-        EasyMock.replay(render, sound, input, loginController);
+        RenderDevice render = Mockito.mock(RenderDevice.class);
+        Mockito.when(render.getWidth()).thenReturn(800);
+        Mockito.when(render.getHeight()).thenReturn(600);
+        SoundDevice sound = Mockito.mock(SoundDevice.class);
+        InputSystem input = Mockito.mock(InputSystem.class);
+        ScreenController loginController = Mockito.mock(ScreenController.class);
+
         nifty = new Nifty(render, sound, input, () -> time);
 
         ScreenBuilder login = new ScreenBuilder("login", loginController);
