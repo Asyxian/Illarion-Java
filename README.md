@@ -28,6 +28,10 @@ For further information check out our homepage: https://illarion.org
 
 Any changes to the applications can be applied using pull requests.
 
+All new and modified handwritten code must follow the
+[Illarion Coding Style](https://github.com/vilarion/Illarion-Coding-Style).
+See [the project checklist](docs/coding-style.md) and `AGENTS.md`.
+
 Build
 -----
 
@@ -61,7 +65,7 @@ The resource-converter Gradle plugin targets Java 17. The separate launcher
 uses **Java 25 and OpenJFX 25.0.4** and does not support Java 8.
 
 Java 8 remains a compatibility target for the game, not a constraint on future
-modernization. To run the available game/library tests on an installed JDK 8:
+modernisation. To run the available game/library tests on an installed JDK 8:
 
 ```powershell
 .\gradlew.bat :client:test :common:test :mapeditor:test -PtestJavaVersion=8
@@ -90,7 +94,7 @@ An opt-in desktop integration test starts libGDX with an invisible OpenGL window
 The Java 25 test additionally denies legacy Unsafe memory access. These tests
 require working desktop graphics and have been checked on Windows x64.
 LWJGL 3.4 raises the Linux x64 requirement to GLIBC 2.28; other platforms still
-need runtime validation. See [modernization follow-up notes](docs/modernization-follow-up.md)
+need runtime validation. See [modernisation follow-up notes](docs/modernization-follow-up.md)
 for remaining warnings and pre-existing findings.
 
 ### Distributions and launcher
@@ -145,7 +149,7 @@ used to run IntelliJ itself. Gradle supplies per-module compilation settings.
 If you use `build.ps1`, set the IDE's Gradle user home to
 `<project>/.gradle/gradle-user-home` to reuse its cache.
 
-The modernization was informed by upstream
+The modernisation was informed by upstream
 [PR #113](https://github.com/Illarion-eV/Illarion-Java/pull/113), especially its
 JavaFX separation and launcher Java-version detection. Except for the LWJGL
 runtime compatibility fix, game-library upgrades and gameplay bug fixes remain

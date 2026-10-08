@@ -19,8 +19,13 @@ apply plugin: 'maven-publish'
 
 apply from: '../versions.gradle'
 
-base { archivesName = 'illarion_easyquest' }
-application { mainClass = 'illarion.easyquest.gui.MainFrame' }
+base {
+    archivesName = 'illarion_easyquest'
+}
+
+application {
+    mainClass = 'illarion.easyquest.gui.MainFrame'
+}
 
 dependencies {
     api project(':common')

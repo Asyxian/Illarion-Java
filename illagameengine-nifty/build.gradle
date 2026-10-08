@@ -18,7 +18,10 @@ apply plugin: 'maven-publish'
 
 apply from: '../versions.gradle'
 
-base { archivesName = 'illarion_engine_nifty' }
+base {
+    archivesName = 'illarion_engine_nifty'
+}
+
 dependencies {
     api project(':common')
     api project(':engine')

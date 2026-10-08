@@ -16,7 +16,9 @@
 apply plugin: 'java-library'
 apply plugin: 'maven-publish'
 
-base { archivesName = 'nifty-style-illarion' }
+base {
+    archivesName = 'nifty-style-illarion'
+}
 
 jar {
     dependsOn { gitVersion }

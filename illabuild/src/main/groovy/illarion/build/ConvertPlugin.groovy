@@ -20,6 +20,7 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.bundling.Jar
 
 /** Resource converter using Gradle's public extension and Java component APIs. */
+
 class ConvertPlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
@@ -28,23 +29,53 @@ class ConvertPlugin implements Plugin<Project> {
         def legacyDependencies = project.configurations.maybeCreate('compile')
         legacyDependencies.canBeConsumed = false
         legacyDependencies.canBeResolved = false
-        project.configurations.named('api') { extendsFrom legacyDependencies }
+
+        project.configurations.named('api') {
+            extendsFrom legacyDependencies
+        }
+
         def conversion = project.tasks.register('convertResources', ResourceConverter) {
             description = 'Convert the resources for the Illarion applications.'
             group = 'build'
-            atlasName.set(project.provider { converter.atlasNameExtension ?: project.name })
-            privateKey.set(project.layout.file(project.provider { converter.privateKey }))
-            resources.from(project.provider { converter.resources })
-            resourceDirectory.set(project.layout.dir(project.provider { converter.resourceDirectory }))
-            outputDirectory.set(project.layout.dir(project.provider { converter.outputDirectory }))
+
+            atlasName.set(project.provider {
+                converter.atlasNameExtension ?: project.name
+            })
+
+            privateKey.set(project.layout.file(project.provider {
+                converter.privateKey
+            }))
+
+            resources.from(project.provider {
+                converter.resources
+            })
+
+            resourceDirectory.set(project.layout.dir(project.provider {
+                converter.resourceDirectory
+            }))
+
+            outputDirectory.set(project.layout.dir(project.provider {
+                converter.outputDirectory
+            }))
         }
+
         project.tasks.named('jar', Jar) {
-            from(conversion.flatMap { it.outputDirectory })
+            from(conversion.flatMap {
+                it.outputDirectory
+            })
+
             manifest.from(converter.manifest)
-            metaInf.from(project.provider { converter.metaInf })
+
+            metaInf.from(project.provider {
+                converter.metaInf
+            })
         }
+
         // Do not package the unconverted inputs alongside the converted output.
-        project.tasks.named('processResources') { enabled = false }
+        project.tasks.named('processResources') {
+            enabled = false
+        }
+
         project.tasks.register('buildConvert') {
             description = 'Assemble converted resources.'
             group = 'build'

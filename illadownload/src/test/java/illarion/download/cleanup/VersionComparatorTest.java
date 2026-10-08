@@ -17,19 +17,15 @@ package illarion.download.cleanup;
 
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
-import java.io.IOException;
-import java.util.Comparator;
-import java.util.stream.Stream;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 /**
  * @author Martin Karing &lt;nitram@illarion.org&gt;
@@ -301,7 +297,10 @@ public class VersionComparatorTest {
                 Files.createDirectories(path);
             } else {
                 Files.createDirectories(path.getParent());
-                if (!Files.exists(path)) Files.createFile(path);
+
+                if (!Files.exists(path)) {
+                    Files.createFile(path);
+                }
             }
         } catch (IOException e) {
             throw new AssertionError(e);

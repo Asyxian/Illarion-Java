@@ -16,7 +16,10 @@
 apply plugin: 'java-library'
 apply plugin: 'maven-publish'
 
-base { archivesName = 'illarion_engine' }
+base {
+    archivesName = 'illarion_engine'
+}
+
 dependencies {
     api project(':common')
 }

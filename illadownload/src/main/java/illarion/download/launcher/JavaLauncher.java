@@ -74,6 +74,7 @@ public final class JavaLauncher {
 
         for (Path executable : executablePaths) {
             int javaVersion = getJavaVersion(executable);
+
             if (javaVersion >= 8) {
                 List<String> callList = new ArrayList<>();
                 callList.add(escapePath(executable.toString()));
@@ -119,24 +120,26 @@ public final class JavaLauncher {
         } catch (IOException e) {
             log.error("Launching {} failed.", executable);
         }
+
         return 0;
     }
 
     // Both legacy 1.8.0_... and modern OpenJDK version strings are supported.
-    static boolean isSupportedJavaVersion(String line) {
-        return parseJavaVersion(line) >= 8;
-    }
-
     static int parseJavaVersion(String line) {
-        Matcher matcher = Pattern.compile("^(?:java|openjdk) version \"(\\d+)(?:\\.(\\d+))?[^\"]*\"").matcher(line.trim());
+        Pattern versionPattern = Pattern.compile("^(?:java|openjdk) version \"(\\d+)(?:\\.(\\d+))?[^\"]*\"");
+        Matcher matcher = versionPattern.matcher(line.trim());
+
         if (!matcher.find()) {
             return 0;
         }
+
         try {
             int feature = Integer.parseInt(matcher.group(1));
+
             if (feature == 1) {
                 return matcher.group(2) != null ? Integer.parseInt(matcher.group(2)) : 0;
             }
+
             return feature;
         } catch (NumberFormatException e) {
             return 0;
@@ -145,13 +148,16 @@ public final class JavaLauncher {
 
     static List<String> runtimeOptions(int javaVersion, boolean aggressive) {
         List<String> options = new ArrayList<>();
+
         if (javaVersion >= 17) {
             options.add("--enable-native-access=ALL-UNNAMED");
         }
+
         // Deprecated in Java 11 and removed in Java 12.
         if (aggressive && javaVersion >= 8 && javaVersion < 11) {
             options.add("-XX:+AggressiveOpts");
         }
+
         return options;
     }
 

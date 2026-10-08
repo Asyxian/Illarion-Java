@@ -25,7 +25,10 @@ apply from: '../versions.gradle'
     }
 }
 
-base { archivesName = 'illarion_download' }
+base {
+    archivesName = 'illarion_download'
+}
+
 application {
     mainClass = 'illarion.download.Application'
     applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
@@ -34,7 +37,10 @@ application {
 def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
 def arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
 def fxPlatform = os.contains('win') ? 'win' : os.contains('mac') ? 'mac' : 'linux'
-if (arch in ['aarch64', 'arm64']) { fxPlatform += '-aarch64' }
+
+if (arch in ['aarch64', 'arm64']) {
+    fxPlatform += '-aarch64'
+}
 
 dependencies {
     api project(':common')
@@ -54,7 +60,9 @@ dependencies {
 
 dependencies {
     ['base', 'graphics', 'controls', 'fxml'].each { module ->
-        implementation("org.openjfx:javafx-${module}:25.0.4:${fxPlatform}") { transitive = false }
+        implementation("org.openjfx:javafx-${module}:25.0.4:${fxPlatform}") {
+            transitive = false
+        }
     }
 }
 
@@ -83,11 +91,21 @@ tasks.register('packageLauncher', Exec) {
     dependsOn tasks.named('installDist')
     def destination = layout.buildDirectory.dir('package')
     def imageName = os.contains('mac') ? 'IllarionLauncher.app' : 'IllarionLauncher'
-    inputs.dir(tasks.named('installDist').map { it.destinationDir })
-    outputs.dir(destination.map { it.dir(imageName) })
+
+    inputs.dir(tasks.named('installDist').map {
+        it.destinationDir
+    })
+
+    outputs.dir(destination.map {
+        it.dir(imageName)
+    })
+
     doFirst {
         delete destination.get().dir(imageName)
-        def launcher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }.get()
+
+        def launcher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(25)
+        }.get()
         def executableName = os.contains('win') ? 'jpackage.exe' : 'jpackage'
         commandLine launcher.metadata.installationPath.file("bin/${executableName}").asFile,
             '--type', 'app-image', '--name', 'IllarionLauncher',
@@ -102,6 +120,14 @@ tasks.register('packageLauncher', Exec) {
 }
 
 publishing {
-    publications { mavenJava(MavenPublication) { from components.java } }
-    repositories { maven { url = uri(project.ext.mavenRepo) } }
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url = uri(project.ext.mavenRepo)
+        }
+    }
 }

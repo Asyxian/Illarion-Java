@@ -103,6 +103,7 @@ abstract class ResourceConverter extends DefaultTask {
         getResources().each { file ->
             analyseAndOrderFile(file)
         }
+
         convert(getResourceDirectory().get().asFile, getOutputDirectory().get().asFile)
     }
 

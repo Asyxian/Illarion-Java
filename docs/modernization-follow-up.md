@@ -1,8 +1,8 @@
-# Runtime findings after build modernization
+# Runtime findings after build modernisation
 
 Baseline: `cbe2b665` (Gradle 9.8.0 / JDK 25). Scope: fix regressions and
 compatibility issues exposed by changing the build/runtime. Existing application
-bugs are recorded here, without modifying their behavior.
+bugs are recorded here, without modifying their behaviour.
 
 ## Java runtime compatibility
 
@@ -19,7 +19,7 @@ bugs are recorded here, without modifying their behavior.
   generated distribution scripts or a direct IDE application configuration,
   supply this option through `JAVA_OPTS` / VM options on Java 17+.
 - The launcher no longer passes the obsolete `AggressiveOpts` flag to modern
-  child JVMs. The setting's behavior is preserved for Java 8–10.
+  child JVMs. The setting's behaviour is preserved for Java 8–10.
 - Windows x64 native startup is tested on Java 25 and Java 8. Full gameplay,
   audible sound output, Linux and macOS remain separate manual checks. LWJGL
   3.4 requires GLIBC 2.28 or later on Linux x64.
@@ -36,7 +36,7 @@ Official references:
 | Missing `alertVolume` | `IllaClient` registers sound/music defaults, but no alert-volume default. `AudioPlayer` reads it; `ConfigSystem.getFloat` returns zero when absent, potentially muting alerts. | Decide the desired default and register it without overwriting saved values. |
 | Missing `lastLogin` / `fingerprint` | `Login.restoreLogin` / `restorePassword` request optional saved credentials through getters that log missing entries. An unset value is expected before credentials have been saved. | Use an optional-value lookup or appropriate defaults; preserve password-storage semantics. |
 
-These findings are present in the pre-modernization code. They are not fixed
+These findings are present in the pre-modernisation code. They are not fixed
 as part of the Java/Gradle migration.
 
 ## Build warnings

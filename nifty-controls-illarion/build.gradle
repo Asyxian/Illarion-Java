@@ -18,7 +18,9 @@ apply plugin: 'maven-publish'
 
 apply from: '../versions.gradle'
 
-base { archivesName = 'nifty-controls-illarion' }
+base {
+    archivesName = 'nifty-controls-illarion'
+}
 
 dependencies {
     api project(':common')

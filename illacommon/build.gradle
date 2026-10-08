@@ -19,7 +19,9 @@ apply plugin: 'java-library'
 apply plugin: 'maven-publish'
 apply from: '../versions.gradle'
 
-base { archivesName = 'illarion_common' }
+base {
+    archivesName = 'illarion_common'
+}
 
 dependencies {
     api "org.jetbrains:annotations:15.0"

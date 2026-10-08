@@ -68,7 +68,11 @@ class ConvertPluginConvention {
      */
     public Manifest manifest(Closure closure) {
         Manifest result = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension).manifest()
-        if (closure != null) { project.configure(result, closure) }
+
+        if (closure != null) {
+            project.configure(result, closure)
+        }
+
         return result
     }
 }

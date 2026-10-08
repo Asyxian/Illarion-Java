@@ -20,8 +20,13 @@ apply plugin: 'idea'
 
 apply from: '../versions.gradle'
 
-base { archivesName = 'illarion_easynpc' }
-application { mainClass = 'illarion.easynpc.gui.MainFrame' }
+base {
+    archivesName = 'illarion_easynpc'
+}
+
+application {
+    mainClass = 'illarion.easynpc.gui.MainFrame'
+}
 
 project.extensions.antlr = [
         grammarpackage: "illarion.easynpc.grammar",

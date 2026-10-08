@@ -19,8 +19,13 @@ apply plugin: 'maven-publish'
 
 apply from: '../versions.gradle'
 
-base { archivesName = 'illarion_client' }
-application { mainClass = 'illarion.client.IllaClient' }
+base {
+    archivesName = 'illarion_client'
+}
+
+application {
+    mainClass = 'illarion.client.IllaClient'
+}
 
 dependencies {
     api project(':common')
@@ -71,6 +76,7 @@ jar {
 
 run {
     jvmArgs '-Dillarion.server=devserver'
+
     doFirst {
         if (javaLauncher.get().metadata.languageVersion.asInt() >= 17) {
             jvmArgs '--enable-native-access=ALL-UNNAMED'

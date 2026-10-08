@@ -19,8 +19,13 @@ apply plugin: 'maven-publish'
 
 apply from: '../versions.gradle'
 
-base { archivesName = 'illarion_mapedit' }
-application { mainClass = 'illarion.mapedit.MapEditor' }
+base {
+    archivesName = 'illarion_mapedit'
+}
+
+application {
+    mainClass = 'illarion.mapedit.MapEditor'
+}
 
 dependencies {
     api project(':common')

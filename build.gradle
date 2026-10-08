@@ -15,7 +15,10 @@
  */
 
 buildscript {
-    repositories { mavenCentral() }
+    repositories {
+        mavenCentral()
+    }
+
     dependencies {
         classpath 'com.guardsquare:proguard-gradle:7.10.0'
         classpath 'de.undercouch:gradle-download-task:5.7.0'
@@ -40,8 +43,10 @@ def gitOutput = { List<String> args ->
         workingDir(rootDir)
         ignoreExitValue = true
     }
+
     output.result.get().exitValue == 0 ? output.standardOutput.asText.get().trim() : 'unknown'
 }
+
 def revision = gitOutput(['describe', '--tags', '--always', 'HEAD'])
 def sourceBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
 def releaseVersion = revision.tokenize('-')[0]
@@ -51,14 +56,25 @@ allprojects {
     version = sourceBranch == 'master' ? releaseVersion : releaseVersion + '-SNAPSHOT'
     ext.fullVersion = revision
     ext.branch = sourceBranch
-    ext.mavenRepo = providers.gradleProperty('targetRepo').map { file(it).toURI().toString() }
-        .getOrElse(layout.buildDirectory.dir('repo').get().asFile.toURI().toString())
-    tasks.register('gitVersion') { description = 'Version metadata is resolved during configuration.' }
+
+    ext.mavenRepo = providers.gradleProperty('targetRepo').map {
+        file(it).toURI().toString()
+    }.getOrElse(layout.buildDirectory.dir('repo').get().asFile.toURI().toString())
+
+    tasks.register('gitVersion') {
+        description = 'Version metadata is resolved during configuration.'
+    }
+
     repositories {
         mavenCentral()
+
         maven {
             url = uri('https://illarion.org/media/java/maven')
-            content { includeGroup 'org.illarion'; includeGroup 'org.l33tlabs.twl' }
+
+            content {
+                includeGroup 'org.illarion'
+                includeGroup 'org.l33tlabs.twl'
+            }
         }
     }
 }
@@ -71,16 +87,22 @@ subprojects {
 
     def targetJava = project.name == 'download' ? 25 : project.name == 'build' ? 17 :
             project.name in ['easynpc', 'compiler'] ? 11 : 8
+
     java {
-        toolchain { languageVersion = JavaLanguageVersion.of(25) }
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+
         sourceCompatibility = JavaVersion.toVersion(targetJava)
         targetCompatibility = JavaVersion.toVersion(targetJava)
     }
+
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
         // Build utilities use Gradle's Java 17 API; the JavaFX launcher targets Java 25.
         options.release = targetJava
     }
+
     tasks.withType(Test).configureEach {
         useTestNG()
         // Optional compatibility check for application modules, without changing the build JVM.
@@ -90,17 +112,20 @@ subprojects {
             }
         }
     }
+
     dependencies {
         testImplementation 'org.testng:testng:7.5.1'
         api 'org.jetbrains:annotations:15.0'
         api 'com.google.code.findbugs:jsr305:3.0.1'
     }
+
     spotbugs {
         toolVersion = '4.10.4'
         ignoreFailures = true
         effort = com.github.spotbugs.snom.Effort.valueOf('MAX')
         reportLevel = com.github.spotbugs.snom.Confidence.valueOf('HIGH')
     }
+
     pmd {
         toolVersion = '7.28.0'
         ignoreFailures = true

@@ -1,13 +1,28 @@
+/*
+ * This file is part of the Illarion project.
+ *
+ * Illarion is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Illarion is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
 package illarion.download.launcher;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import java.util.Arrays;
+
 import java.util.Collections;
+
 import static org.testng.Assert.assertEquals;
 
 public class JavaLauncherTest {
-    @DataProvider public Object[][] versions() {
+    @DataProvider
+    public Object[][] versions() {
         return new Object[][] {
             {"java version \"1.7.0_80\"", false},
             {"java version \"1.8.0_504\"", true},
@@ -20,17 +35,22 @@ public class JavaLauncherTest {
             {"garbage", false}
         };
     }
-    @Test(dataProvider="versions") public void recognizesSupportedRuntime(String line, boolean expected) {
-        assertEquals(JavaLauncher.isSupportedJavaVersion(line), expected);
+
+    @Test(dataProvider = "versions")
+    public void recognisesSupportedRuntime(String line, boolean expected) {
+        assertEquals(JavaLauncher.parseJavaVersion(line) >= 8, expected);
     }
 
-    @Test public void runtimeFlagsFollowTheChildJvmVersion() {
+    @Test
+    public void runtimeFlagsFollowTheChildJvmVersion() {
         assertEquals(JavaLauncher.runtimeOptions(8, false), Collections.emptyList());
-        assertEquals(JavaLauncher.runtimeOptions(8, true), Arrays.asList("-XX:+AggressiveOpts"));
+        assertEquals(JavaLauncher.runtimeOptions(8, true), Collections.singletonList("-XX:+AggressiveOpts"));
         assertEquals(JavaLauncher.runtimeOptions(11, true), Collections.emptyList());
         assertEquals(JavaLauncher.runtimeOptions(16, false), Collections.emptyList());
-        assertEquals(JavaLauncher.runtimeOptions(17, false), Arrays.asList("--enable-native-access=ALL-UNNAMED"));
-        assertEquals(JavaLauncher.runtimeOptions(25, true), Arrays.asList("--enable-native-access=ALL-UNNAMED"));
+        assertEquals(JavaLauncher.runtimeOptions(17, false),
+                Collections.singletonList("--enable-native-access=ALL-UNNAMED"));
+        assertEquals(JavaLauncher.runtimeOptions(25, true),
+                Collections.singletonList("--enable-native-access=ALL-UNNAMED"));
         assertEquals(JavaLauncher.parseJavaVersion("java version \"1.8.0_504\""), 8);
         assertEquals(JavaLauncher.parseJavaVersion("openjdk version \"25\""), 25);
     }
