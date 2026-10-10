@@ -53,6 +53,14 @@ This is the best small, well-defined first optimisation.
 
 ## 2. Pixel buffer ownership is incomplete
 
+**Fork status, 10 October 2026:** fixed on `develop` by integrating `1cf4f870`
+and `dd909435` from [upstream PR #175](https://github.com/Illarion-eV/Illarion-Java/pull/175),
+addressing issue #162. Tests cover native buffer release, failed uploads,
+shared atlas regions and world-map disposal with concurrent or delayed writes.
+Real OpenGL lifecycle checks passed on Java 8 and Java 25. No process-memory
+or frame-time improvement has been quantified. The analysis below describes
+the original defect.
+
 `illagameengine-libgdx/src/main/java/org/illarion/engine/backend/gdx/GdxTextureManager.java`
 loads PNG data into a `Pixmap` (line 44) and constructs
 `new Texture(preLoadData, false)` at line 54. Neither this method nor its atlas

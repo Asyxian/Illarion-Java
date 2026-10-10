@@ -141,3 +141,49 @@ Validation:
 
 The merge required no conflict resolution. The changed files do not overlap
 with the earlier independently published bug-fix and build-modernisation PRs.
+
+## Native pixel-buffer follow-up on 10 October 2026
+
+Upstream issue [#162](https://github.com/Illarion-eV/Illarion-Java/issues/162)
+is addressed in [PR #175](https://github.com/Illarion-eV/Illarion-Java/pull/175),
+from `upstream_issue_162/fix-pixmap-disposal` against upstream `develop`.
+Its two independent fixes retain separate commits:
+
+- `1cf4f870` releases temporary Pixmaps after successful or failed texture
+  uploads. Existing unmanaged GPU textures and shared atlas regions keep their
+  ownership rules.
+- `dd909435` retains the world-map Pixmap until disposal, then releases both
+  the texture and pixels once. Pixel access and disposal share a lock; delayed
+  provider results and queued refreshes are ignored after disposal. Resource
+  initialisation and texture-deletion failure also release the owned pixels.
+
+Both commits merged without conflicts or production/test source adaptations.
+The fork additionally applies its existing native-access and Unsafe-denial
+options to the ordinary backend test task, which now loads libGDX native
+pixel buffers. The upstream PR does not change build files or dependencies.
+
+Validation:
+
+- Four upload tests and nine world-map tests reproduce their respective
+  original defects and pass with the fixes. These use real native buffers,
+  recorded GL calls and bounded thread synchronisation; they do not need a
+  desktop graphics context or a mocking library.
+- Java 8 / Gradle 3.5: 19 backend/client/common tests passed without failures,
+  errors or skips. The initial build cleaned old branch outputs; local offline
+  validation used cached resources 2.3.3 and disabled the skills download.
+- Java 25: `:engine-libgdx:test :engine-libgdx:nativeRuntimeTest :client:test
+  :common:test :client:installDist` passed offline. The run executed 13 backend
+  cases, 107 client cases and one native graphics case. The unchanged common
+  task was up to date with 15 passing cases. All 136 reported cases are free
+  of failures, errors and skips, and the client distribution was rebuilt.
+- An additional local smoke check used a real hidden OpenGL window for ten
+  texture/world-map creation, update and disposal cycles on each of Java 8 and
+  Java 25, with no OpenGL errors. The standalone harness logged the absence
+  of an SLF4J logging implementation; this is not a client startup finding.
+- Coding-style review and `git diff --check` passed. No gameplay session or
+  process-memory/frame-time benchmark was performed.
+
+The changed files do not overlap with the earlier independent PRs, including
+#174. Future minimap-upload work for #163 must retain the disposal guard and
+pixel lock. Texture-loading work for #164 must preserve ownership of temporary
+pixels when finalisation succeeds, fails or is abandoned.

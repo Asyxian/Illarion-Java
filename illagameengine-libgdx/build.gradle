@@ -29,13 +29,16 @@ dependencies {
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:1.13.1:natives-desktop"
 }
 
-// Requires a desktop with OpenGL; deliberately separate from the ordinary unit tests.
 tasks.named('test', Test) {
+    // Pixel-buffer lifecycle tests load libGDX natives without opening a graphics window.
+    jvmArgs rootProject.ext.applicationJvmArgs
+
     useTestNG {
         excludeGroups 'nativeRuntime'
     }
 }
 
+// Requires a desktop with OpenGL; deliberately separate from the ordinary unit tests.
 tasks.register('nativeRuntimeTest', Test) {
     description = 'Smoke-test libGDX and LWJGL with a hidden OpenGL window.'
     group = 'verification'

@@ -144,6 +144,12 @@ this does not substitute for running JavaFX on Linux or macOS.
 
 ## Remaining limits and findings
 
+The 10 October pixel-buffer fix additionally applies the same native JVM
+options to the ordinary `engine-libgdx` test task. Its new lifecycle tests use
+libGDX native Pixmaps with recorded GL calls and do not open a window. The
+separate `nativeRuntimeTest` still requires a desktop OpenGL context; see the
+[integration follow-up](fork-integration.md#native-pixel-buffer-follow-up-on-10-october-2026).
+
 - The launcher still uses the upstream Maven/download endpoints. Creating a
   local app image does not establish a fork-specific update or release channel.
 - Full gameplay, audible sound output, Linux/macOS startup, native installers,
