@@ -24,6 +24,12 @@ The order reflects confidence and implementation scope, not measured speed gains
 
 ## 1. Avatar label dimension caching never becomes clean
 
+**Fork status, 10 October 2026:** fixed on `develop` by integrating `aa0315d0`
+from [upstream PR #174](https://github.com/Illarion-eV/Illarion-Java/pull/174),
+addressing issue #161. Regression tests verify cache reuse and continued
+position updates; no in-game frame-time improvement has been measured.
+The analysis below describes the original defect.
+
 In `illaclient/src/main/java/illarion/client/graphics/AvatarTextTag.java`,
 `setCharacterName()` and `setHealthState()` set `dimensionsDirty` to true.
 `calculateTextLocations()` checks that flag at line 202, but never clears it.

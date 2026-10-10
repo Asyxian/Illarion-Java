@@ -108,3 +108,36 @@ configuration. The Windows helper was also checked without a JDK-path override.
 Live server login, full gameplay and non-Windows platforms require separate
 manual validation. Existing non-blocking PMD/SpotBugs findings and the SpotBugs
 plugin's Gradle deprecation remain documented in the runtime follow-up notes.
+
+## Avatar label cache follow-up on 10 October 2026
+
+Upstream issue [#161](https://github.com/Illarion-eV/Illarion-Java/issues/161)
+is fixed by commit `aa0315d0`, published independently in
+[PR #174](https://github.com/Illarion-eV/Illarion-Java/pull/174) from
+`upstream_issue_161/fix-avatar-labels` against upstream `develop`.
+The same commit is merged into this fork's Java 25 `develop` without source
+or test adaptations. The upstream branch retains Java 8 and Gradle 3.5.
+
+Text dimensions and offsets are cached until the name or health text changes.
+The screen rectangle continues to follow position and avatar-height changes
+on each positioned update. Eleven new tests cover cache reuse, invalidation,
+movement, height, resumed updates after hiding, missing positions and empty
+labels. They use a recording font and require neither a graphics context nor
+PowerMock/Mockito. Ten cases fail with the original measurement behaviour.
+
+Validation:
+
+- A clean Java 8 / Gradle 3.5 client/common test run on the upstream branch
+  passed all 17 cases without failures, errors or skips. A local init script
+  pinned cached resources to 2.3.3 and disabled the skills download; it is not
+  included in the PR. Cleaning removed stale outputs from earlier branches.
+- On the integrated Java 25 branch,
+  `./gradlew --offline --no-daemon :client:test :common:test :client:installDist`
+  passed. All 107 client tests ran successfully; the unchanged common test
+  task was up to date with 15 passing cases. The reports contain no failures,
+  errors or skips. The client distribution was rebuilt.
+- Coding-style review and `git diff --check` passed. No new gameplay session
+  or frame-time benchmark was performed; no numerical FPS gain is claimed.
+
+The merge required no conflict resolution. The changed files do not overlap
+with the earlier independently published bug-fix and build-modernisation PRs.
