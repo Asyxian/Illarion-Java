@@ -187,3 +187,41 @@ The changed files do not overlap with the earlier independent PRs, including
 #174. Future minimap-upload work for #163 must retain the disposal guard and
 pixel lock. Texture-loading work for #164 must preserve ownership of temporary
 pixels when finalisation succeeds, fails or is abandoned.
+
+## Own-character label proposal on 10 October 2026
+
+Upstream issue [#146](https://github.com/Illarion-eV/Illarion-Java/issues/146)
+is proposed in **draft** [PR #176](https://github.com/Illarion-eV/Illarion-Java/pull/176),
+from `upstream_issue_146/show-own-character` against upstream `develop`.
+Commit `d923f4c8` adds a default-off checkbox to Options / General, next to the
+quest-display settings. It independently enables the own-character name and
+descriptive health label; the F12 modes for other characters stay unchanged.
+The existing avatar alpha threshold also applies to the new label.
+
+The proposal remains a draft for discussion of the feature, wording and placement
+with upstream maintainers. Integration into this fork does not imply upstream
+approval. The implementation requires no server, protocol, resource-package,
+dependency or build changes and retains Java 8 compatibility in the PR.
+
+Validation:
+
+- Java 8 / Gradle 3.5: all eight client/common cases passed without failures,
+  errors or skips, following a clean build. As for the earlier PRs, offline
+  validation used a local init script selecting cached resources 2.3.3 and
+  disabling the skills download; that script is not part of the PR.
+- Two new tests exercise the actual Nifty XML and controller in English and
+  German: initial opt-out, localised label, layout, saving, reopening,
+  cancellation and disabling again. They use synthetic font measurements,
+  so layout assertions do not replace visual inspection with shipped fonts.
+- The merge needed no conflict resolution or source/test adaptation. Java 25
+  `:client:test :common:test :client:installDist` passed offline. All 109 client
+  cases ran; the unchanged common task was up to date with 15 passing cases.
+  All 124 reported cases have zero failures, errors and skips.
+- Coding-style review and `git diff --check` passed. No authenticated gameplay
+  test was performed; actual appearance, movement, changing health and fading
+  remain to be reviewed in game.
+
+The changed files do not overlap our other independent PRs. The feature reuses
+`AvatarTextTag`, whose measurement fix from #174 is already integrated here;
+neither upstream PR depends on the other. Future changes to tag behaviour
+should consider both own-character and other-character labels.
