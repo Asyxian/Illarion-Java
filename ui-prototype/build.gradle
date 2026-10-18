@@ -1,0 +1,43 @@
+/*
+ * This file is part of the Illarion project.
+ *
+ * Copyright 2026 - Illarion e.V.
+ *
+ * Illarion is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Illarion is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+apply plugin: 'application'
+apply from: '../versions.gradle'
+
+application {
+    mainClass = 'illarion.prototype.PrototypeMain'
+}
+
+dependencies {
+    implementation project(':engine-libgdx')
+    runtimeOnly "ch.qos.logback:logback-classic:${project.ext.logbackVersion}"
+}
+
+tasks.named('test', Test) {
+    exclude '**/Scene2dNativeTest*'
+}
+
+tasks.register('nativeUiTest', Test) {
+    description = 'Exercise the prototype on a real OpenGL context; requires a desktop.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/Scene2dNativeTest*'
+    jvmArgs rootProject.ext.applicationJvmArgs
+}
+
+tasks.named('run', JavaExec) {
+    systemProperty 'illarion.prototype.settings', layout.buildDirectory.file('prototype/settings.properties').get()
+}

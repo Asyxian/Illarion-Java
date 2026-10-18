@@ -678,6 +678,11 @@ class GdxGraphics implements Graphics {
         }
     }
 
+    @Override
+    public void flush() {
+        flushAll();
+    }
+
     private float getFloatColor(@Nonnull Color source, @Nonnull com.badlogic.gdx.graphics.Color workingInstance) {
         transferColor(source, workingInstance);
         return workingInstance.toFloatBits();

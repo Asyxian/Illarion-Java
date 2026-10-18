@@ -26,6 +26,7 @@ include "illagameengine-nifty"
 include "illamapedit"
 include "nifty-controls-illarion"
 include "nifty-style-illarion"
+include "ui-prototype"
 
 rootProject.name = "illarion"
 rootProject.children.each {

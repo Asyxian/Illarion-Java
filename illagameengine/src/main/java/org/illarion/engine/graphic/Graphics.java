@@ -29,6 +29,12 @@ import javax.annotation.concurrent.NotThreadSafe;
 @NotThreadSafe
 public interface Graphics {
     /**
+     * Finish queued drawing before handing the frame to an external renderer.
+     * The external renderer must run after the engine's drawing for this frame.
+     */
+    void flush();
+
+    /**
      * Clean everything that was rendered from the output device.
      */
     void clear();
