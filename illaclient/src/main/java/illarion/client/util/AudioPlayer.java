@@ -201,6 +201,11 @@ public final class AudioPlayer implements EventTopicSubscriber<ConfigChangedEven
             if (musicEnabled) {
                 float musicVolume = cfg.getFloat("musicVolume") / Player.MAX_CLIENT_VOL;
                 sounds.setMusicVolume(musicVolume);
+
+                // Settings without a live preview must also start music that was disabled at login.
+                if (lastMusic != null && !sounds.isMusicPlaying(lastMusic)) {
+                    playLastMusic();
+                }
             } else {
                 sounds.setMusicVolume(0.f);
             }

@@ -121,3 +121,6 @@ Before a migration decision, the next useful experiment is one actual client
 screen behind a feature flag, with clear input ownership and existing regression
 coverage retained. Then evaluate rich chat behaviour and real inventory dragging.
 The full options UI, style assets and localisation should follow that decision.
+
+The follow-up branch `scene2d-client-settings` now implements the optional
+[real client settings screen](scene2d-settings.md), with Nifty remaining the default.

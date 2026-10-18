@@ -155,6 +155,9 @@ IDE integration
 The optional [Scene2D UI prototype](docs/scene2d-prototype.md) runs separately
 with `./gradlew :ui-prototype:run`; it does not replace the client's Nifty UI.
 
+The [optional client settings screen](docs/scene2d-settings.md) can be enabled
+with `./gradlew :client:run -Pscene2dSettings=true`. Nifty remains the default.
+
 Import the root Gradle project using its wrapper. In IntelliJ IDEA, select
 **JDK 25 as the Gradle JVM**; this is separate from the JVM running IntelliJ.
 Gradle supplies the per-module compilation settings.

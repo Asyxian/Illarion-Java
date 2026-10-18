@@ -18,7 +18,10 @@ package illarion.client;
 import de.lessvoid.nifty.Nifty;
 import de.lessvoid.nifty.spi.time.impl.AccurateTimeProvider;
 import illarion.client.graphics.FontLoader;
+import illarion.client.gui.scene2d.Scene2dSettingsView;
 import illarion.client.input.InputReceiver;
+import illarion.client.settings.ClientSettingsService;
+import illarion.client.settings.SettingsView;
 import illarion.client.states.*;
 import illarion.client.util.ConnectionPerformanceClock;
 import illarion.client.util.Lang;
@@ -26,6 +29,7 @@ import illarion.client.world.World;
 import illarion.common.config.ConfigChangedEvent;
 import org.bushe.swing.event.annotation.AnnotationProcessor;
 import org.bushe.swing.event.annotation.EventTopicSubscriber;
+import org.illarion.engine.DesktopGameContainer;
 import org.illarion.engine.GameContainer;
 import org.illarion.engine.GameListener;
 import org.illarion.engine.assets.TextureManager;
@@ -43,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Properties;
 
 /**
@@ -98,6 +103,38 @@ public final class Game implements GameListener {
     private boolean limitBackgroundFPS;
     private boolean showPing;
     private boolean guiResolutionChanged;
+    private IgeInputSystem niftyInput;
+    private SettingsView settingsView;
+    private boolean settingsRequested;
+    private final boolean scene2dSettings = Boolean.getBoolean("illarion.ui.scene2dSettings");
+
+    public boolean isScene2dSettingsEnabled() {
+        return scene2dSettings;
+    }
+
+    /** The login controller requests a screen change; native input dispatch completes before switching. */
+    public void openSettings() {
+        if (activeListener != STATE_LOGIN || targetListener != STATE_LOGIN) {
+            return;
+        }
+
+        if (scene2dSettings) {
+            settingsRequested = true;
+        } else {
+            nifty.gotoScreen("options");
+        }
+    }
+
+    private void resetSettingsInput() {
+        nifty.resetMouseInputEvents();
+        niftyInput.resetInputState();
+    }
+
+    private void closeSettings() {
+        settingsView.close();
+        settingsView = null;
+        resetSettingsInput();
+    }
 
     /**
      * Create the game with the fitting title, showing the name of the application and its version.
@@ -155,8 +192,9 @@ public final class Game implements GameListener {
 
         InputReceiver inputReceiver = new InputReceiver(container.getEngine().getInput());
         // Prepare the game's Nifty and its properties
+        niftyInput = new IgeInputSystem(container.getEngine().getInput(), inputReceiver);
         nifty = new Nifty(new IgeRenderDevice(container, "gui/"), new IgeSoundDevice(container.getEngine()),
-                          new IgeInputSystem(container.getEngine().getInput(), inputReceiver),
+                          niftyInput,
                           new AccurateTimeProvider());
 
         Properties niftyProperties = nifty.getGlobalProperties();
@@ -257,6 +295,10 @@ public final class Game implements GameListener {
      */
     @Override
     public void dispose() {
+        if (settingsView != null) {
+            closeSettings();
+        }
+
         nifty = null;
 
         for (@Nonnull GameState listener : gameStates) {
@@ -276,6 +318,10 @@ public final class Game implements GameListener {
     public void resize(@Nonnull GameContainer container, int width, int height) {
         IllaClient.getCfg().set("windowHeight", height);
         IllaClient.getCfg().set("windowWidth", width);
+
+        if (settingsView != null) {
+            settingsView.resize(width, height);
+        }
 
         if (nifty != null) {
             nifty.resolutionChanged();
@@ -300,6 +346,20 @@ public final class Game implements GameListener {
     @Override
     public void update(@Nonnull GameContainer container, int delta) {
         assert nifty != null;
+        if (settingsView != null) {
+            if (targetListener != STATE_LOGIN) {
+                settingsView.requestClose();
+            }
+
+            settingsView.update(delta / 1000.f);
+            container.getEngine().getSounds().poll(delta);
+            if (settingsView.isReadyToClose()) {
+                closeSettings();
+            }
+
+            return;
+        }
+
         if (targetListener != activeListener) {
             GameState activeState = getCurrentState();
             if (activeState != null) {
@@ -314,6 +374,25 @@ public final class Game implements GameListener {
 
         nifty.update();
         container.getEngine().getSounds().poll(delta);
+
+        if (settingsRequested) {
+            settingsRequested = false;
+            if (activeListener == STATE_LOGIN && targetListener == STATE_LOGIN) {
+                DesktopGameContainer desktop = (DesktopGameContainer) container;
+                var resolutions = Arrays.stream(desktop.getFullScreenResolutions()).map(Object::toString).toList();
+                var service = new ClientSettingsService(IllaClient.getCfg(), resolutions,
+                        IllaClient.DEFAULT_SERVER != Servers.Illarionserver, Lang.getInstance().getLocale());
+                resetSettingsInput();
+                try {
+                    settingsView = new Scene2dSettingsView(service, Lang.getInstance().getLocale());
+                } catch (RuntimeException exception) {
+                    LOGGER.error("Unable to open Scene2D settings; falling back to Nifty.", exception);
+                    nifty.gotoScreen("options");
+                }
+
+                return;
+            }
+        }
 
         GameState activeListener = getCurrentState();
         if (activeListener != null) {
@@ -346,6 +425,12 @@ public final class Game implements GameListener {
     @Override
     public void render(@Nonnull GameContainer container) {
         assert nifty != null;
+
+        if (settingsView != null) {
+            container.getEngine().getGraphics().flush();
+            settingsView.render();
+            return;
+        }
 
         GameState activeListener = getCurrentState();
         if (activeListener != null) {

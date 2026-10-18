@@ -502,6 +502,15 @@ public class IgeInputSystem implements InputSystem, InputListener {
         currentConsumer = null;
     }
 
+    /** Discard key-repeat and click bookkeeping when handing input to another exclusive screen. */
+    public void resetInputState() {
+        stalledKeyDownKey = null;
+        holdKeyDownKey = 0;
+        holdKeyDownPollCounter = 0;
+        hasHoldKeyDownPassedInitialDelay = false;
+        consumeClicks = 0;
+    }
+
     @Override
     public void setMousePosition(int x, int y) {
         input.setMouseLocation(x, y);

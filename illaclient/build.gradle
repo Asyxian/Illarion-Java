@@ -42,7 +42,7 @@ dependencies {
 
     api project(':common')
     api project(':engine')
-    runtimeOnly project(':engine-libgdx')
+    implementation project(':engine-libgdx')
     api project(':engine-nifty')
     api project(':nifty-controls')
     runtimeOnly project(':nifty-style')
@@ -88,6 +88,7 @@ jar {
 
 // Install instrumentation explicitly; do not rely on dynamic agent attachment.
 tasks.named('test', Test) {
+    exclude '**/SettingsNativeTest*'
     doFirst {
         jvmArgs "-javaagent:${configurations.mockitoAgent.singleFile.absolutePath}"
     }
@@ -95,6 +96,21 @@ tasks.named('test', Test) {
 
 run {
     jvmArgs '-Dillarion.server=devserver'
+    systemProperty 'illarion.ui.scene2dSettings',
+            providers.gradleProperty('scene2dSettings').getOrElse('false')
+}
+
+tasks.register('nativeSettingsTest', Test) {
+    description = 'Exercise the optional client settings screen on a desktop OpenGL context.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/SettingsNativeTest*'
+    jvmArgs rootProject.ext.applicationJvmArgs
+    systemProperty 'illarion.ui.scene2dSettings', 'true'
+    systemProperty 'illarion.server', 'devserver'
+    systemProperty 'illarion.test.settingsLanguage', providers.gradleProperty('settingsTestLanguage').getOrElse('en')
+    systemProperty 'user.home', layout.buildDirectory.dir('native-settings-home').get().asFile.absolutePath
 }
 
 task sourceJar(type: Jar) {

@@ -19,6 +19,7 @@ import de.lessvoid.nifty.Nifty;
 import de.lessvoid.nifty.NiftyEventSubscriber;
 import de.lessvoid.nifty.controls.*;
 import de.lessvoid.nifty.elements.Element;
+import de.lessvoid.nifty.elements.events.NiftyMousePrimaryMultiClickedEvent;
 import de.lessvoid.nifty.input.NiftyInputEvent;
 import de.lessvoid.nifty.input.NiftyStandardInputEvent;
 import de.lessvoid.nifty.screen.KeyInputHandler;
@@ -297,11 +298,19 @@ public final class LoginScreenController implements ScreenController, KeyInputHa
         options();
     }
 
+    @NiftyEventSubscriber(id = "optionBtn")
+    public void onOptionsMultiClicked(String topic, NiftyMousePrimaryMultiClickedEvent event) {
+        // The immediate return from Scene2D can still fall within Nifty's multi-click interval.
+        if (game.isScene2dSettingsEnabled()) {
+            options();
+        }
+    }
+
     /**
      * This function switches the screen to the option screen.
      */
     private void options() {
-        nifty.gotoScreen("options");
+        game.openSettings();
     }
 
     @NiftyEventSubscriber(id = "server")
